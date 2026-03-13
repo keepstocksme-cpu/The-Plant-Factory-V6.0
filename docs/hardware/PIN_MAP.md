@@ -1,19 +1,28 @@
 # ESP32 Dev Pin Map
 
-This is a starter pin map for the first hardware scope.
+This is the active starter pin map for the first real ESP32 Dev test.
 
 ## Scope
 
 - Board: ESP32 Dev
 - Outputs: 3 pump relay channels
 
-## Starter mapping
+## Active mapping used by the firmware
 
 | Device | ESP32 Pin | Notes |
 | --- | --- | --- |
-| Pump 1 Relay | GPIO 25 | Example starter pin |
-| Pump 2 Relay | GPIO 26 | Example starter pin |
-| Pump 3 Relay | GPIO 27 | Example starter pin |
+| Pump 1 Relay | GPIO 25 | Used in `firmware/esp32-dev/src/main.cpp` |
+| Pump 2 Relay | GPIO 26 | Used in `firmware/esp32-dev/src/main.cpp` |
+| Pump 3 Relay | GPIO 27 | Used in `firmware/esp32-dev/src/main.cpp` |
+
+## Wiring summary
+
+- Relay input for Pump 1 -> GPIO 25
+- Relay input for Pump 2 -> GPIO 26
+- Relay input for Pump 3 -> GPIO 27
+- ESP32 GND -> relay GND
+
+Do not connect pump power directly to the ESP32.
 
 ## Important warnings
 
@@ -31,3 +40,12 @@ This is a starter pin map for the first hardware scope.
 4. Pump power supply size
 5. Emergency stop strategy
 
+## Beginner note
+
+If you need different pins later, only change these constants:
+
+```cpp
+const int PUMP_1_PIN = 25;
+const int PUMP_2_PIN = 26;
+const int PUMP_3_PIN = 27;
+```

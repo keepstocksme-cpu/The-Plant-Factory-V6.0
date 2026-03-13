@@ -1,10 +1,10 @@
 # Firmware API
 
-This document describes the simple Phase 1 HTTP API for the ESP32 Dev starter.
+This is the Phase 2 HTTP API for first real testing on an ESP32 Dev board.
 
 ## Base URL
 
-Example:
+Replace the IP with your ESP32 IP from the serial monitor.
 
 ```text
 http://192.168.1.50
@@ -14,55 +14,90 @@ http://192.168.1.50
 
 ### `GET /`
 
-Health check endpoint.
-
-Example response:
-
-```text
-ESP32 Dev pump controller is running.
-```
-
-### `GET /status`
-
-Returns the current state of the 3 pumps.
+Simple health check.
 
 Example response:
 
 ```json
 {
+  "ok": true,
+  "message": "ESP32 Dev pump controller is running"
+}
+```
+
+### `GET /status`
+
+Returns the current state of all 3 pumps.
+
+Example response:
+
+```json
+{
+  "device": "pump",
   "pump1": false,
   "pump2": false,
   "pump3": false
 }
 ```
 
-### `GET /pump?id=pump1&state=on`
+### `GET /command?device=pump&id=1&state=on`
 
-Turns a specific pump on or off.
+Turns Pump 1 on.
+
+### `GET /command?device=pump&id=1&state=off`
+
+Turns Pump 1 off.
 
 Allowed values:
-- `id`: `pump1`, `pump2`, `pump3`
+- `device`: `pump`
+- `id`: `1`, `2`, `3`
 - `state`: `on`, `off`
 
-Example:
-
-```text
-GET /pump?id=pump2&state=off
-```
-
-Example response:
+Example success response:
 
 ```json
 {
-  "pump1": false,
-  "pump2": false,
-  "pump3": true
+  "ok": true,
+  "device": "pump",
+  "id": 1,
+  "state": "on",
+  "pin": 25,
+  "status": {
+    "device": "pump",
+    "pump1": true,
+    "pump2": false,
+    "pump3": false
+  }
 }
 ```
 
-## Notes for the future web app
+Example error response:
 
-- Keep requests simple and readable
-- Return JSON for control and status endpoints
-- Later phases can add authentication, sensor data, and scheduling
+```json
+{
+  "ok": false,
+  "error": "Pump id not found. Use id=1, id=2, or id=3"
+}
+```
+
+## Browser test URLs
+
+Replace `192.168.1.50` with your real ESP32 IP:
+
+```text
+http://192.168.1.50/status
+http://192.168.1.50/command?device=pump&id=1&state=on
+http://192.168.1.50/command?device=pump&id=1&state=off
+http://192.168.1.50/command?device=pump&id=2&state=on
+http://192.168.1.50/command?device=pump&id=3&state=off
+```
+
+## Serial monitor behavior
+
+The firmware prints simple logs for:
+- Wi-Fi connection
+- Assigned IP address
+- Pin setup
+- Incoming HTTP requests
+- Pump on/off commands
 
