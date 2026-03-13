@@ -1,0 +1,480 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Home, Sliders, MessageSquare, Settings, Thermometer, Droplets, Wind, Zap, Beaker,
+  Mic, Image as ImageIcon, Send, Power, Edit2, X, CalendarDays, Clock,
+  Bot, Droplet, FlaskConical, Waves, Timer, ShieldAlert, ScanSearch, HelpCircle, Calculator,
+  Settings2, Activity, MonitorPlay, Volume2, Leaf, Sprout, Apple, Fan, Layers, Box,
+  ChevronDown, ChevronUp, ArrowRight, BarChart3, RefreshCw
+} from "lucide-react";
+
+// ============================================================================
+// 1. GLOBAL DICTIONARIES & HELPER FUNCTIONS
+// ============================================================================
+const t: any = {
+  th: {
+    brand: "THE PLANT FACTORY เวียงจันทน์", dashboard: "แดชบอร์ด", harvestTab: "เก็บเกี่ยว", commandCenter: "ศูนย์บัญชาการฟาร์ม", controls: "ควบคุม", aiAssistant: "Monday AI", settings: "ตั้งค่า", lighting: "ระบบแสง (16 โซน)", fertigation: "ระบบปรุงปุ๋ยและจัดการ PH", climate: "สภาพอากาศ", kale: "ผักเคล", salad: "ผักสลัด", bellPepper: "พริกหยวก", cucumber: "แตงกวาญี่ปุ่น", seedling: "ต้นกล้า", rack: "แร็คที่", shelf: "ชั้นที่", growth: "การ\nเติบโต", days: "วัน", editPlanting: "แก้ไขวันปลูก", plantDate: "วันที่เริ่มปลูก", targetAge: "รอบปลูก", distribute: "ระบบจ่ายปุ๋ย (5 โซน)", fertNote: "คลิกเลือกชนิดพืชที่คุณต้องการปลูก ระบบจะแนะนำปริมาณปุ๋ยที่เหมาะสม", welcomeTH: "ต้อนรับ (TH)", welcomeLA: "ต้อนรับ (LA)", zone1: "ชั้นปลูกที่ 1", zone2: "ชั้นปลูกที่ 2", zone3: "ชั้นปลูกที่ 3", zone4: "ชั้นปลูกพริกหยวก", zone5: "ชั้นปลูกแตงกวาญี่ปุ่น", pumpA: "เติมปุ๋ย A", pumpB: "เติมปุ๋ย B", acid: "เติม PH ลด", base: "เติม PH เพิ่ม", water: "เติมน้ำเปล่า", stir: "ปั๊มกวนผสม", systemMetrics: "พารามิเตอร์ระบบ", backToSim: "กลับสู่หน้าจำลองแร็ค", harvestSchedule: "ตารางรอบการเก็บเกี่ยว", plantType: "ชนิดพืช", status: "สถานะ", readyToHarvest: "พร้อมเก็บเกี่ยว", nearHarvest: "ใกล้เก็บเกี่ยว", growing: "กำลังเจริญเติบโต", chatPlaceholder: "พิมพ์สั่งการ Monday AI..."
+  },
+  la: {
+    brand: "THE PLANT FACTORY ວຽງຈັນ", dashboard: "ແດຊບອດ", harvestTab: "ເກັບກ່ຽວ", commandCenter: "ສູນບັນຊາການຟາມ", controls: "ຄວບຄຸມ", aiAssistant: "Monday AI", settings: "ຕັ້ງຄ່າ", lighting: "ລະບົບແສງ (16 ໂຊນ)", fertigation: "ລະບົບປຸ໋ຍ ແລະ ຈັດການ PH", climate: "ສະພາບອາກາດ", kale: "ຜັກເຄລ", salad: "ຜັກສະລັດ", bellPepper: "ໝາກເຜັດໃຫຍ່", cucumber: "ໝາກແຕງຍີ່ປຸ່ນ", seedling: "ເບ້ຍໄມ້", rack: "ຊັ້ນປູກທີ", shelf: "ຊັ້ນທີ", growth: "ການ\nເຕີບໂຕ", days: "ມື້", editPlanting: "ແກ້ໄຂວັນປູກ", plantDate: "ວັນທີເລີ່ມປູກ", targetAge: "ຮອບປູກ", distribute: "ລະບົບຈ່າຍປຸ໋ຍ (5 ໂຊນ)", fertNote: "ຄລິກເລືອກຊະນິດພືດທີ່ຕ້ອງການປູກ ລະບົບຈະແນະນຳປະລິມານປຸ໋ຍທີ່ເໝາະສົມ", welcomeTH: "ຕ້ອນຮັບ (TH)", welcomeLA: "ຕ້ອນຮັບ (LA)", zone1: "ຊັ້ນປູກທີ 1", zone2: "ຊັ້ນປູກທີ 2", zone3: "ຊັ້ນປູກທີ 3", zone4: "ຊັ້ນປູກໝາກເຜັດໃຫຍ່", zone5: "ຊັ້ນປູກໝາກແຕງຍີ່ປຸ່ນ", pumpA: "ຕື່ມປຸ໋ຍ A", pumpB: "ຕື່ມປຸ໋ຍ B", acid: "ຕື່ມ PH ລົດ", base: "ຕື່ມ PH ເພີ່ມ", water: "ຕື່ມນ້ຳເປົ່າ", stir: "ປ້ຳກວນປະສົມ", systemMetrics: "ພາຣາມິເຕີລະບົບ", backToSim: "ກັບສູ່ໜ້າຈຳລອງ", harvestSchedule: "ຕາຕະລາງຮອບເກັບກ່ຽວ", plantType: "ຊະນິດພືດ", status: "ສະຖານະ", readyToHarvest: "ພ້ອມເກັບກ່ຽວ", nearHarvest: "ໃກ້ເກັບກ່ຽວ", growing: "ກຳລັງຈະເລີນເຕີບໂຕ", chatPlaceholder: "ພິມສັ່ງການ Monday AI..."
+  },
+  en: {
+    brand: "THE PLANT FACTORY VIENTIANE", dashboard: "Dashboard", harvestTab: "Harvest", commandCenter: "Command Center", controls: "Controls", aiAssistant: "Monday AI", settings: "Settings", lighting: "Lighting (16 Zones)", fertigation: "Fertigation & pH System", climate: "Climate", kale: "Kale", salad: "Salad", bellPepper: "Bell Pepper", cucumber: "Cucumber", seedling: "Seedling", rack: "Rack", shelf: "Shelf", growth: "Growth", days: "Days", editPlanting: "Edit Planting", plantDate: "Plant Date", targetAge: "Cycle", distribute: "Distribution (5 Zones)", fertNote: "Select plant type for optimal nutrient recommendation", welcomeTH: "Welcome (TH)", welcomeLA: "Welcome (LA)", zone1: "Grow Shelf 1", zone2: "Grow Shelf 2", zone3: "Grow Shelf 3", zone4: "Bell Pepper Shelf", zone5: "Cucumber Shelf", pumpA: "Add Fert A", pumpB: "Add Fert B", acid: "pH Down", base: "pH Up", water: "Add Water", stir: "Mixing Pump", systemMetrics: "System Metrics", backToSim: "Back to Simulator", harvestSchedule: "Harvest Schedule Table", plantType: "Plant Type", status: "Status", readyToHarvest: "Ready to Harvest", nearHarvest: "Near Harvest", growing: "Growing", chatPlaceholder: "Message Monday AI..."
+  }
+};
+
+const plantConfigs: any = {
+  kale: { ppm: 2000, a: 1.2, b: 1.2, water: 30, color: "text-emerald-400", bg: "bg-emerald-500/10", icon: 'Leaf' },
+  salad: { ppm: 1400, a: 0.8, b: 0.8, water: 40, color: "text-green-400", bg: "bg-green-500/10", icon: 'Leaf' },
+  bellPepper: { ppm: 2200, a: 1.5, b: 1.5, water: 25, color: "text-red-400", bg: "bg-red-500/10", icon: 'Apple' },
+  cucumber: { ppm: 2000, a: 1.4, b: 1.4, water: 30, color: "text-lime-400", bg: "bg-lime-500/10", icon: 'Apple' },
+  seedling: { ppm: 800, a: 0.4, b: 0.4, water: 50, color: "text-blue-400", bg: "bg-blue-500/10", icon: 'Sprout' }
+};
+
+const renderIcon = (name: string, size: number = 20, className: string = "") => {
+  const icons: any = { Sprout, Apple, Leaf, Layers, Box, Fan, Thermometer, Droplets, Wind, Zap, Beaker, FlaskConical, ShieldAlert, Droplet, Waves, Activity, Power, ScanSearch, Clock, Calculator, Timer };
+  const IconComponent = icons[name] || Leaf;
+  return <IconComponent size={size} className={className} />;
+};
+
+const calculateAge = (dateStr: string) => {
+  if (!dateStr) return 0;
+  const d = new Date(dateStr), today = new Date();
+  d.setHours(0,0,0,0); today.setHours(0,0,0,0);
+  if (today < d) return 0;
+  return Math.ceil(Math.abs(today - d) / (1000 * 60 * 60 * 24)) + 1;
+};
+
+// ============================================================================
+// 2. MODULAR COMPONENTS
+// ============================================================================
+
+const TopMetricsPanel = ({ sensorData }: { sensorData: any }) => (
+  <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4 w-full shrink-0">
+    {[
+      { ic: 'Zap', title: "EC (System)", val: sensorData.ec, unit: "mS/cm", col: "text-yellow-400" },
+      { ic: 'Beaker', title: "PH System", val: sensorData.ph, unit: "pH", col: "text-pink-400" },
+      { ic: 'Thermometer', title: "Temp", val: sensorData.temp, unit: "°C", col: "text-red-400" },
+      { ic: 'Droplets', title: "Humidity", val: sensorData.humidity, unit: "%", col: "text-blue-400" },
+      { ic: 'Wind', title: "CO2", val: sensorData.co2, unit: "ppm", col: "text-teal-400" },
+      { ic: 'Waves', title: "DO (Oxygen)", val: sensorData.do, unit: "mg/L", col: "text-cyan-400" } 
+    ].map((m, i) => (
+      <div key={i} className="bg-slate-800/80 p-3 md:p-4 rounded-xl md:rounded-2xl flex flex-col items-center justify-center border border-slate-700 shadow-lg backdrop-blur-sm">
+        {renderIcon(m.ic, 24, `mb-2 ${m.col}`)}
+        <span className="text-gray-400 text-[9px] md:text-[10px] mb-1 font-bold uppercase tracking-widest leading-none text-center">{m.title}</span>
+        <div className="flex items-baseline gap-1 font-black">
+          <span className="text-xl md:text-2xl text-white font-black">{m.val}</span>
+          <span className="text-gray-500 text-[9px] md:text-[10px] font-bold">{m.unit}</span>
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const RacksDisplay = ({ racksData, lights, handleShelfClick, setEditModal, handleToggleLight, lang }: any) => (
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+    {racksData.map((rack: any) => (
+      <div key={rack.id} className="bg-slate-800/80 border-2 border-slate-700 rounded-2xl p-4 shadow-xl flex flex-col min-h-[520px]">
+        <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 text-white shrink-0">
+          <div><h2 className="text-lg md:text-xl font-black">{t[lang].rack} {rack.id}</h2><span className="text-[9px] md:text-[10px] text-emerald-400 font-bold uppercase tracking-widest leading-none">{rack.id === 3 ? "Mixed Plantings" : t[lang][rack.typeKey]}</span></div>
+          <Activity size={18} className="text-emerald-500" />
+        </div>
+        <div className="flex flex-col gap-3 flex-1 h-full">
+          {rack.shelves.map((shelf: any) => {
+            const isOn = lights[shelf.zone];
+            const age = calculateAge(shelf.plantDate);
+            const pct = Math.min((age / shelf.target) * 100, 100);
+            return (
+              <div key={shelf.zone} onClick={() => handleShelfClick(rack.id, shelf.level, shelf.nameKey ? t[lang][shelf.nameKey] : t[lang][rack.typeKey])} className="bg-slate-900/80 rounded-xl p-3 border border-slate-800 relative overflow-hidden flex flex-col gap-2 group hover:border-emerald-500 transition-all cursor-pointer shadow-inner flex-1 justify-center">
+                <div className={`absolute top-0 left-0 w-full h-1 transition-all duration-500 ${isOn ? "bg-purple-500 shadow-[0_0_15px_#a855f7]" : "bg-transparent"}`} />
+                <div className="flex justify-between items-center z-10 text-white font-black uppercase">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-1.5 rounded-lg ${isOn ? "bg-slate-800 shadow-[0_0_5px_rgba(168,85,247,0.3)]" : "bg-slate-800/50"}`}>{renderIcon(shelf.iconName, 20, shelf.color)}</div>
+                    <div>
+                      <div className="text-[11px] md:text-[13px] font-black uppercase">{t[lang].shelf} {shelf.level} <span className="text-gray-500 font-normal">(โซน {shelf.zone + 1})</span></div>
+                      <div className="text-[9px] md:text-[10px] text-gray-400 font-medium leading-none">{shelf.nameKey ? t[lang][shelf.nameKey] : t[lang][rack.typeKey]}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 md:gap-2">
+                    <button onClick={(e) => { e.stopPropagation(); setEditModal({ isOpen: true, rackId: rack.id, zone: shelf.zone, plantDate: shelf.plantDate, target: shelf.target, title: `${t[lang].rack} ${rack.id} - ${t[lang].shelf} ${shelf.level}` }); }} className="p-1.5 rounded-full bg-slate-800 text-gray-400 hover:text-white border border-slate-700 transition-colors shadow-sm"><Edit2 size={12} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleToggleLight(shelf.zone); }} className={`p-1.5 rounded-full transition-all ${isOn ? "bg-yellow-500/20 text-yellow-400 shadow-[0_0_10px_#eab308]" : "bg-slate-800 text-gray-600"}`}><Power size={14} /></button>
+                  </div>
+                </div>
+                <div className="flex flex-col z-10 w-full mt-1">
+                  <div className="flex items-center gap-2">
+                    <div className="text-[7px] md:text-[8px] text-gray-300 font-black leading-tight flex-shrink-0 w-8">{t[lang].growth}</div>
+                    <div className="flex-1 h-3 md:h-3.5 bg-slate-800 rounded-full overflow-hidden relative border border-slate-700/50">
+                      <div className={`h-full transition-all duration-1000 ${age >= shelf.target ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : age >= shelf.target - 5 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="text-[10px] md:text-[11px] text-emerald-400 font-black w-8 md:w-10 text-right">{Math.round(pct)}%</div>
+                  </div>
+                  <div className="flex justify-end mt-0.5"><span className="text-[9px] md:text-[10px] text-white font-black">{age}/{shelf.target} <span className="text-gray-500 text-[7px] md:text-[8px] font-bold">{t[lang].days}</span></span></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const LightingControl = ({ lights, handleToggleLight, lang, isDesktop }: any) => {
+  const [isOpen, setIsOpen] = useState(true);
+  return (
+    <div className="bg-slate-800/80 rounded-xl border border-slate-700 shadow-lg p-4 md:p-5 shrink-0 flex flex-col">
+      <button onClick={() => !isDesktop && setIsOpen(!isOpen)} className={`w-full flex justify-between items-center text-white font-black mb-4 ${isDesktop ? 'cursor-default' : ''}`}>
+        <div className="flex items-center gap-2 text-sm uppercase"><Zap size={18} className="text-yellow-400" /> {t[lang].lighting}</div>
+        {!isDesktop && (isOpen ? <ChevronUp size={20}/> : <ChevronDown size={20}/>)}
+      </button>
+      {isOpen && (
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 bg-slate-900/50 p-3 rounded-lg">
+          {lights.map((isOn: boolean, idx: number) => (
+            <button key={idx} onClick={() => handleToggleLight(idx)} className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all border-2 ${isOn ? "bg-purple-800/60 border-purple-400 text-white shadow-lg" : "bg-slate-800 border-slate-700 text-gray-500"}`}>
+              <Power size={28} className={`md:w-8 md:h-8 ${isOn ? "animate-pulse" : ""}`} />
+              <span className="text-[9px] md:text-[10px] mt-1 font-black leading-tight">Z {idx + 1}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const FertigationControl = ({ selectedPlant, setSelectedPlant, pumps, handleTogglePump, distZones, handleToggleDist, lang, speakVoice, getPlantPhrase, isDesktop }: any) => {
+  const [isOpen, setIsOpen] = useState(true);
+  return (
+    <div className="bg-slate-800/80 rounded-xl border border-slate-700 shadow-2xl p-4 md:p-5 flex-1 flex flex-col text-white font-black">
+      <button onClick={() => !isDesktop && setIsOpen(!isOpen)} className={`w-full flex justify-between items-center text-blue-400 font-black mb-1 ${isDesktop ? 'cursor-default' : ''}`}>
+        <div className="flex items-center gap-3 text-base md:text-lg uppercase"><Beaker size={22} /> {t[lang].fertigation}</div>
+        {!isDesktop && (isOpen ? <ChevronUp size={20}/> : <ChevronDown size={20}/>)}
+      </button>
+      {isOpen && (
+        <>
+          <p className="text-[9px] md:text-[10px] text-gray-400 mb-4 md:mb-6 font-medium normal-case">{t[lang].fertNote}</p>
+          <div className="grid grid-cols-5 gap-1 md:gap-2 mb-4 md:mb-6 shrink-0">
+            {Object.keys(plantConfigs).map((key) => {
+              const Item = plantConfigs[key];
+              const isActive = selectedPlant === key;
+              return (
+                <button key={key} onClick={() => { setSelectedPlant(key); speakVoice(getPlantPhrase(key, lang)); }} 
+                        className={`flex flex-col items-center p-2 md:p-3 rounded-xl md:rounded-2xl border-2 transition-all duration-300 ${isActive ? 'border-blue-400 bg-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.8)] scale-105 text-white' : 'border-slate-600 bg-slate-800 hover:bg-slate-700 text-gray-400 hover:text-white'}`}>
+                  {renderIcon(Item.icon, 20, isActive ? Item.color : 'text-gray-400')}
+                  <span className="text-[7px] md:text-[8px] font-black mt-1 text-center">{t[lang][key]}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="bg-slate-900/90 rounded-2xl p-4 md:p-5 border-2 border-slate-700 mb-6 shadow-inner relative overflow-hidden shrink-0">
+            <div className="flex justify-between items-center mb-4 text-blue-400 tracking-widest text-[9px] md:text-[11px]">
+                <div className="flex items-center gap-1.5 md:gap-2"><Calculator size={14}/> Nutrition Recipe</div>
+                <div className={`px-2 md:px-3 py-1 rounded-full border border-blue-500/40 bg-blue-500/10 animate-pulse text-[10px] md:text-xs`}>Target: {plantConfigs[selectedPlant].ppm}</div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
+                {[{ k: 'a', l: 'ปุ๋ย A', c: 'text-emerald-400' }, { k: 'b', l: 'ปุ๋ย B', c: 'text-purple-400' }, { k: 'water', l: 'น้ำเปล่า', c: 'text-blue-400' }].map(item => (
+                  <div key={item.k} className="flex flex-col items-center p-1.5 md:p-2 bg-slate-800 rounded-xl border border-slate-700">
+                    <label className="text-[8px] md:text-[10px] text-gray-500 font-black mb-1">{item.l}</label>
+                    <div className="flex items-baseline gap-1"><span className={`text-lg md:text-2xl ${item.c}`}>{plantConfigs[selectedPlant][item.k]}</span><span className="text-[8px] md:text-[10px] text-gray-600 font-bold ml-1">L</span></div>
+                  </div>
+                ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 md:gap-3 mb-6 md:mb-8 shrink-0">
+              {[
+                { id: 'a', label: t[lang].pumpA, ic: 'FlaskConical', col: 'emerald' },
+                { id: 'b', label: t[lang].pumpB, ic: 'FlaskConical', col: 'purple' },
+                { id: 'acid', label: t[lang].acid, ic: 'ShieldAlert', col: 'pink' },
+                { id: 'base', label: t[lang].base, ic: 'Droplet', col: 'indigo' },
+                { id: 'water', label: t[lang].water, ic: 'Waves', col: 'blue' },
+                { id: 'stir', label: t[lang].stir, ic: 'Activity', col: 'teal' }
+              ].map(btn => (
+              <div key={btn.id} onClick={() => handleTogglePump(btn.id, btn.label)} className={`p-3 md:p-4 rounded-xl md:rounded-2xl border-2 flex items-center justify-between cursor-pointer transition-all ${pumps[btn.id] ? `bg-${btn.col}-900/30 border-${btn.col}-500 shadow-md` : "bg-slate-900/40 border-slate-700 hover:bg-slate-800"}`}>
+                <div className="flex flex-col gap-1 text-white">{renderIcon(btn.ic, 18, pumps[btn.id] ? `text-${btn.col}-400` : 'text-gray-400')}<span className="text-[11px] md:text-[15px] font-black leading-none">{btn.label}</span></div>
+                <div className={`w-8 md:w-10 h-4 md:h-5 rounded-full relative transition-colors ${pumps[btn.id] ? `bg-${btn.col}-500` : "bg-slate-600"}`}><div className={`absolute top-0.5 w-3 md:w-4 h-3 md:h-4 rounded-full bg-white transition-all ${pumps[btn.id] ? "left-4 md:left-5" : "left-0.5"}`} /></div>
+              </div>
+              ))}
+          </div>
+          <div className="mt-auto border-t-2 border-slate-700 pt-4 md:pt-6">
+              <span className="text-[14px] md:text-[18px] text-blue-400 uppercase tracking-widest mb-3 md:mb-4 block text-center font-black">{t[lang].distribute}</span>
+              <div className="grid grid-cols-2 gap-2 md:gap-3">
+                {[
+                  { k: 'z1', l: t[lang].zone1, i: 'Layers' }, { k: 'z2', l: t[lang].zone2, i: 'Layers' },
+                  { k: 'z3', l: t[lang].zone3, i: 'Layers' }, { k: 'z4', l: t[lang].zone4, i: 'Box' },
+                  { k: 'z5', l: t[lang].zone5, i: 'Box' }
+                ].map((zone) => (
+                  <div key={zone.k} onClick={() => handleToggleDist(zone.k, zone.l)} className={`p-3 md:p-5 rounded-xl md:rounded-2xl border-2 flex items-center justify-between cursor-pointer transition-all ${distZones[zone.k] ? `bg-blue-900/30 border-blue-500 shadow-lg` : "bg-slate-900/40 border-slate-700 hover:bg-slate-800"}`}>
+                    <div className="flex flex-col gap-1 md:gap-2 text-white">{renderIcon(zone.i, 20, distZones[zone.k] ? 'text-blue-400 animate-pulse' : 'text-gray-600')}<span className="text-[12px] md:text-[16px] font-black leading-tight">{zone.l}</span></div>
+                    <div className={`w-8 md:w-10 h-4 md:h-5 rounded-full relative transition-colors ${distZones[zone.k] ? "bg-blue-500" : "bg-slate-600"}`}><div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${distZones[zone.k] ? "left-5" : "left-0.5"}`} /></div>
+                  </div>
+                ))}
+              </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const MondayAIChat = ({ messages, inputText, setInputText, handleSendMessage, chatRef, lang, speakVoice }: any) => (
+  <div className="bg-slate-800/90 border-2 border-indigo-500/40 rounded-3xl p-6 md:p-8 shadow-2xl w-full flex flex-col min-h-[350px] relative overflow-hidden backdrop-blur-sm text-white shrink-0">
+    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 gap-4 z-10 border-b border-slate-700/50 pb-4 md:pb-6">
+      <div className="flex items-center gap-3 md:gap-4 text-white">
+        <div className="bg-indigo-600 p-3 md:p-4 rounded-2xl shadow-[0_0_25px_#4f46e5] border border-indigo-400"><Bot size={32} /></div>
+        <div><h2 className="text-2xl md:text-3xl font-black tracking-tighter leading-none">Monday AI</h2><p className="text-[10px] md:text-xs text-indigo-400 font-bold uppercase tracking-[0.3em] animate-pulse mt-1">Farm Strategist Agent</p></div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 w-full lg:w-auto">
+        {[
+          { label: "วิเคราะห์พืช", action: "ช่วยวิเคราะห์โรคพืชจากรูปที่ส่งให้หน่อย", icon: 'ScanSearch', color: "text-pink-400", border: "border-pink-500/40", bg: "bg-pink-500/5" },
+          { label: "เช็คอายุเก็บเกี่ยว", action: "ตรวจสอบแร็คที่ใกล้เก็บเกี่ยวให้หน่อย", icon: 'Clock', color: "text-amber-400", border: "border-amber-500/40", bg: "bg-amber-500/5" },
+          { label: "คำนวณปุ๋ยแม่นยำ", action: "ช่วยแนะนำสัดส่วนปุ๋ยตามค่า EC ปัจจุบันหน่อย", icon: 'Calculator', color: "text-emerald-400", border: "border-emerald-500/40", bg: "bg-emerald-500/5" },
+          { label: "ตั้งเวลาอัตโนมัติ", action: "ช่วยตั้งเวลาจัดการฟาร์มอัตโนมัติ", icon: 'Timer', color: "text-sky-400", border: "border-sky-500/40", bg: "bg-sky-500/5" }
+        ].map((p, i) => (
+          <button key={i} onClick={() => { setInputText(p.action); speakVoice(`กำลังเปิดฟังก์ชัน ${p.label}`); }} className={`p-3 md:p-4 rounded-xl border-2 ${p.border} ${p.bg} flex flex-col items-center justify-center gap-1.5 md:gap-2 hover:scale-105 transition-all shadow-lg text-white active:brightness-125`}>
+              {renderIcon(p.icon, 20, p.color)}
+              <span className="text-[9px] md:text-[10px] font-black text-center">{p.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+    <div className="flex-1 overflow-y-auto pr-2 mb-6 space-y-4 custom-scrollbar min-h-[120px]">
+      {messages.map((msg: any) => (
+        <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+          <div className={`max-w-[85%] md:max-w-[70%] p-4 md:p-5 rounded-3xl text-sm md:text-base shadow-2xl break-words whitespace-pre-wrap ${msg.sender === "user" ? "bg-indigo-600 text-white rounded-br-none border-2 border-indigo-400 font-bold" : "bg-slate-700/90 text-gray-100 rounded-bl-none border border-slate-600 backdrop-blur-xl"}`}>{msg.text}</div>
+        </div>
+      ))}
+      <div ref={chatRef} />
+    </div>
+    <div className="p-2 md:p-3 bg-slate-900/90 rounded-full border-2 border-slate-700 flex gap-2 md:gap-4 items-center z-10 shadow-2xl backdrop-blur-2xl overflow-hidden">
+      <button className="p-2 md:p-4 bg-slate-800 text-gray-400 rounded-full hover:text-pink-400 transition-all hover:bg-slate-700 shadow-md shrink-0"><ImageIcon size={20} /></button>
+      <button className="p-2 md:p-4 bg-slate-800 text-gray-400 rounded-full hover:text-sky-400 transition-all hover:bg-slate-700 shadow-md shrink-0"><Mic size={20} /></button>
+      <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyPress={(e) => e.key === "Enter" && handleSendMessage()} placeholder={t[lang].chatPlaceholder} className="flex-1 min-w-0 bg-transparent text-white px-2 py-1 md:py-2 text-sm sm:text-base md:text-xl font-bold outline-none placeholder-slate-600" />
+      <button onClick={handleSendMessage} className="p-3 md:p-5 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 transition-all shadow-xl active:scale-90 hover:rotate-12 shrink-0"><Send size={20} /></button>
+    </div>
+  </div>
+);
+
+// ============================================================================
+// 3. MAIN APP (State Manager)
+// ============================================================================
+let globalHasPlayedWelcome = false;
+
+export default function App() {
+  const [lang, setLang] = useState("la");
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  // States
+  const [espIp, setEspIp] = useState("http://10.10.0.2"); 
+  const [sensorData, setSensorData] = useState({ temp: 24.5, humidity: 65, ph: 6.2, ec: 1.8, co2: 850, do: 7.8 });
+  const [lights, setLights] = useState(Array(16).fill(true));
+  const [pumps, setPumps] = useState<any>({ a: false, b: false, acid: false, base: false, water: false, stir: false });
+  const [distZones, setDistZones] = useState<any>({ z1: false, z2: false, z3: false, z4: false, z5: false });
+  const [climate, setClimate] = useState<any>({ ac: true, dehumidifier: false, co2: false, fan: false });
+  const [selectedPlant, setSelectedPlant] = useState("kale");
+  const [messages, setMessages] = useState<any[]>([]);
+  const [inputText, setInputText] = useState("");
+  const [editModal, setEditModal] = useState<any>({ isOpen: false, rackId: null, zone: null, plantDate: '', target: 0, title: '' });
+
+  const chatRef = useRef<any>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const currentAudioFileRef = useRef<string | null>(null);
+
+  const [racksData, setRacksData] = useState([
+    { id: 1, typeKey: 'kale', shelves: [
+        { level: 5, zone: 4, plantDate: '2026-01-10', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
+        { level: 4, zone: 3, plantDate: '2026-01-15', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
+        { level: 3, zone: 2, plantDate: '2026-01-20', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
+        { level: 2, zone: 1, plantDate: '2026-01-28', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
+        { level: 1, zone: 0, plantDate: '2026-02-10', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
+    ]},
+    { id: 2, typeKey: 'salad', shelves: [
+        { level: 5, zone: 9, plantDate: '2026-01-12', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
+        { level: 4, zone: 8, plantDate: '2026-01-18', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
+        { level: 3, zone: 7, plantDate: '2026-01-25', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
+        { level: 2, zone: 6, plantDate: '2026-02-02', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
+        { level: 1, zone: 5, plantDate: '2026-02-12', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
+    ]},
+    { id: 3, typeKey: 'mixed', shelves: [
+        { level: 3, zone: 12, nameKey: 'cucumber', plantDate: '2026-01-20', target: 30, iconName: 'Apple', color: "text-green-500" },
+        { level: 2, zone: 11, nameKey: 'bellPepper', plantDate: '2026-01-15', target: 60, iconName: 'Apple', color: "text-red-500" },
+        { level: 1, zone: 10, nameKey: 'seedling', plantDate: '2026-02-15', target: 15, iconName: 'Sprout', color: "text-lime-400" },
+    ]}
+  ]);
+
+  // Handlers
+  const speakVoice = (text: string) => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "th-TH";
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const sendCommandToESP = async (deviceType: string, id: string | number, state: string) => {
+    if (!espIp) return;
+    const commandUrl = `${espIp}/command?device=${deviceType}&id=${id}&state=${state}`;
+    console.log("กำลังส่งคำสั่งไปที่: ", commandUrl);
+    if (espIp.includes("10.10.0")) {
+      console.log(`✅ [Sim] Sent: ${deviceType} ${id} ${state}`);
+      return; 
+    }
+    try { await fetch(commandUrl, { mode: 'no-cors' }); } catch (e) { console.error(e); }
+  };
+
+  const handleToggleLight = (i: number) => {
+    const next = !lights[i]; const newL = [...lights]; newL[i] = next; setLights(newL);
+    speakVoice(`โซนแสงสว่างที่ ${i + 1} ${next ? "เปิดแล้ว" : "ปิดแล้ว"}`);
+    sendCommandToESP("light", i, next ? "on" : "off");
+  };
+
+  const handleTogglePump = (k: string, l: string) => {
+    const next = !pumps[k]; setPumps({ ...pumps, [k]: next });
+    speakVoice(`${l} ${next ? "เปิดแล้ว" : "ปิดแล้ว"}`);
+    sendCommandToESP("pump", k, next ? "on" : "off");
+  };
+
+  const handleToggleClimate = (k: string, l: string) => {
+    const next = !climate[k]; setClimate({ ...climate, [k]: next });
+    speakVoice(`${l} ${next ? "เปิดแล้ว" : "ปิดแล้ว"}`);
+    sendCommandToESP("climate", k, next ? "on" : "off");
+  };
+
+  const handleToggleDist = (k: string, l: string) => {
+    const next = !distZones[k]; setDistZones({ ...distZones, [k]: next });
+    speakVoice(`ระบบจ่ายปุ๋ย ${l} ${next ? "เปิดแล้ว" : "ปิดแล้ว"}`);
+    sendCommandToESP("dist", k, next ? "on" : "off");
+  };
+
+  const handleShelfClick = (r: number, s: number, p: string) => {
+    const msg = `${t[lang].rack} ${r} ${t[lang].shelf} ${s} พืชคือ ${p}`;
+    setMessages(prev => [...prev, { id: Date.now(), sender: "ai", text: msg }]);
+    speakVoice(msg);
+  };
+
+  const handleSendMessage = () => {
+    if (!inputText.trim()) return;
+    setMessages(prev => [...prev, { id: Date.now(), sender: "user", text: inputText }]);
+    setInputText("");
+    setTimeout(() => {
+      const r = "Monday รับทราบ กำลังดำเนินการตรวจสอบให้...";
+      setMessages(prev => [...prev, { id: Date.now() + 1, sender: "ai", text: r }]);
+      speakVoice("Monday รับทราบ กำลังดำเนินการตรวจสอบให้");
+    }, 1000);
+  };
+
+  const savePlantingData = () => {
+    setRacksData(prev => prev.map(r => r.id === editModal.rackId ? { ...r, shelves: r.shelves.map((s: any) => s.zone === editModal.zone ? { ...s, plantDate: editModal.plantDate, target: Number(editModal.target) } : s) } : r));
+    setEditModal({ ...editModal, isOpen: false });
+    speakVoice("บันทึกข้อมูลเรียบร้อย");
+  };
+
+  const toggleWelcomeAudio = (file: string) => {
+    if (currentAudioRef.current) currentAudioRef.current.pause();
+    const audio = new Audio(file);
+    currentAudioRef.current = audio; currentAudioFileRef.current = file;
+    audio.play().catch(() => speakVoice("ยินดีต้อนรับสู่ เดอะ แพลนท์ แฟคทอรี่"));
+  };
+
+  // Effects
+  useEffect(() => { chatRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    const playAuto = () => {
+      if (globalHasPlayedWelcome) return; globalHasPlayedWelcome = true;
+      toggleWelcomeAudio('lao monday.wav');
+    };
+    document.addEventListener('click', playAuto, { once: true });
+    return () => document.removeEventListener('click', playAuto);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#0B1121] font-sans overflow-hidden flex flex-col relative text-slate-200 uppercase font-black">
+      {/* HEADER */}
+      <div className="bg-slate-900 border-b border-slate-800 px-4 py-3 md:px-8 md:py-4 flex justify-between items-center shrink-0 z-20 shadow-2xl">
+        <div className="flex items-center gap-3 md:gap-8 text-white font-bold">
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="bg-emerald-500 p-1.5 md:p-2.5 rounded-xl border border-emerald-400 shadow-[0_0_20px_#10b981] text-slate-900"><MonitorPlay className="w-5 h-5 md:w-8 md:h-8" /></div>
+            <h1 className="text-sm sm:text-xl md:text-3xl font-black uppercase tracking-tighter leading-none">{t[lang].brand}</h1>
+          </div>
+          <div className="hidden lg:flex bg-slate-800 p-2 rounded-xl border border-slate-700 shadow-inner">
+            <button onClick={() => setActiveTab("dashboard")} className={`px-5 py-2.5 rounded-lg text-lg transition-all ${activeTab === "dashboard" ? "bg-slate-700 text-white shadow-lg border border-slate-600 font-black" : "text-gray-400"}`}><Home size={18} className="inline mr-2" />{t[lang].dashboard}</button>
+            <button onClick={() => setActiveTab("harvest")} className={`px-5 py-2.5 rounded-lg text-lg transition-all ${activeTab === "harvest" ? "bg-slate-700 text-emerald-400 shadow-lg border border-slate-600 font-black" : "text-gray-400"}`}><CalendarDays size={18} className="inline mr-2" />{t[lang].harvestTab}</button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 md:gap-4">
+           <div className="flex bg-slate-800 rounded-xl p-1 border border-slate-700">
+             {(["en", "th", "la"]).map((l) => (
+               <button key={l} onClick={() => setLang(l)} className={`px-2 md:px-4 py-1.5 md:py-2 rounded-lg text-[8px] md:text-sm font-black transition-all ${lang === l ? "bg-emerald-600 text-white shadow-md" : "text-gray-400"}`}>{l.toUpperCase()}</button>
+             ))}
+           </div>
+           <div className="flex flex-col gap-1">
+             <button onClick={() => toggleWelcomeAudio('th monday.wav')} className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 rounded text-[7px] font-black text-white border border-indigo-400 active:scale-90">{t[lang].welcomeTH}</button>
+             <button onClick={() => toggleWelcomeAudio('lao monday.wav')} className="px-2 py-0.5 bg-red-600 hover:bg-red-500 rounded text-[7px] font-black text-white border border-red-400 active:scale-90">{t[lang].welcomeLA}</button>
+           </div>
+        </div>
+      </div>
+
+      {/* CONTENT */}
+      <div className="flex-1 p-4 md:p-6 overflow-hidden bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] bg-fixed font-black pb-28 xl:pb-6">
+        {activeTab === "dashboard" ? (
+          <div className="flex flex-col gap-6 h-full overflow-y-auto pr-2 custom-scrollbar pb-10">
+            <TopMetricsPanel sensorData={sensorData} />
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-stretch flex-1">
+              <div className="xl:col-span-2 flex flex-col gap-8">
+                <RacksDisplay racksData={racksData} lights={lights} handleShelfClick={handleShelfClick} setEditModal={setEditModal} handleToggleLight={handleToggleLight} lang={lang} />
+                <div className="bg-slate-800/80 border-2 border-slate-700 rounded-3xl p-6 md:p-8 shadow-2xl w-full text-white font-black uppercase shrink-0">
+                   <div className="text-xl md:text-2xl flex items-center gap-3 text-teal-400 border-b border-slate-700 pb-4 mb-6"><Wind size={28}/> {t[lang].climate}</div>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                     {[ { label: 'แอร์ (AC)', key: 'ac', ic: 'Thermometer', col: 'sky' }, { label: 'ดูดความชื้น', key: 'dehumidifier', ic: 'Droplets', col: 'blue' }, { label: 'วาล์ว CO2', key: 'co2', ic: 'Wind', col: 'teal' }, { label: 'พัดลมระบาย', key: 'fan', ic: 'Fan', col: 'emerald' } ].map((item) => (
+                       <div key={item.key} onClick={() => handleToggleClimate(item.key, item.label)} className={`p-4 rounded-2xl border-2 flex items-center justify-between cursor-pointer transition-all ${climate[item.key] ? `bg-${item.col}-900/30 border-${item.col}-500 shadow-lg` : "bg-slate-900/40 border-slate-700 hover:bg-slate-800"}`}>
+                         <div className="flex items-center gap-3"><div className={`p-2.5 rounded-xl ${climate[item.key] ? `bg-${item.col}-500/20 text-${item.col}-400` : 'bg-slate-800 text-gray-400'}`}>{renderIcon(item.ic, 24, item.key === 'fan' && climate.fan ? 'animate-spin' : '')}</div><span className="text-xs md:text-sm">{item.label}</span></div>
+                         <div className={`w-10 h-5 rounded-full relative transition-colors ${climate[item.key] ? `bg-${item.col}-500` : "bg-slate-600"}`}><div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${climate[item.key] ? "left-5" : "left-0.5"}`} /></div>
+                       </div>
+                     ))}
+                   </div>
+                </div>
+                <MondayAIChat messages={messages} inputText={inputText} setInputText={setInputText} handleSendMessage={handleSendMessage} chatRef={chatRef} lang={lang} speakVoice={speakVoice} />
+              </div> 
+              <div className="xl:col-span-1 flex flex-col gap-6 md:gap-8 text-white font-black uppercase flex-1 h-full">
+                 <LightingControl lights={lights} handleToggleLight={handleToggleLight} lang={lang} isDesktop={true} />
+                 <FertigationControl selectedPlant={selectedPlant} setSelectedPlant={setSelectedPlant} pumps={pumps} handleTogglePump={handleTogglePump} distZones={distZones} handleToggleDist={handleToggleDist} lang={lang} speakVoice={speakVoice} getPlantPhrase={(k:any,l:any)=>plantConfigs[k].ppm} isDesktop={true} />
+                 <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-xl mt-4">
+                    <h3 className="text-gray-400 text-xs mb-3 uppercase tracking-wider flex items-center gap-2"><Zap size={14} className="text-yellow-400"/> ESP32 IP</h3>
+                    <input type="text" value={espIp} onChange={(e) => setEspIp(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm font-mono" />
+                 </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="w-full h-full pb-10">
+             <div className="bg-slate-800/80 p-5 md:p-8 rounded-[2.5rem] border-2 border-slate-700 shadow-2xl w-full h-full flex flex-col animate-in zoom-in-95">
+              <h2 className="text-2xl md:text-3xl font-black mb-6 md:mb-8 flex items-center gap-3 border-b border-slate-700 pb-4 text-emerald-400 tracking-tighter"><CalendarDays size={32} /> {t[lang].harvestTab}</h2>
+              <div className="overflow-x-auto custom-scrollbar flex-1 rounded-2xl border border-slate-700 bg-slate-900/40 text-white font-bold">
+                <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead className="bg-slate-900 text-slate-400 text-xs md:text-sm border-b border-slate-700 tracking-[0.2em]"><tr><th className="px-6 py-4 text-center font-black">#</th><th>{t[lang].rack}</th><th>{t[lang].shelf}</th><th>{t[lang].plantType}</th><th className="text-center font-black">{t[lang].plantDate}</th><th className="text-center font-black">อายุ/เป้าหมาย</th><th className="text-center font-black text-lg">วันเหลือ</th></tr></thead>
+                  <tbody className="divide-y divide-slate-700/50 text-gray-200">
+                    {racksData.flatMap(r => r.shelves.map(s => ({ ...s, rackId: r.id, rackType: r.typeKey }))).sort((a:any, b:any) => (a.target - calculateAge(a.plantDate)) - (b.target - calculateAge(b.plantDate))).map((m: any, i: number) => { 
+                      const age = calculateAge(m.plantDate); const rem = m.target - age; 
+                      return (<tr key={i} className="hover:bg-slate-800/50 text-sm md:text-base transition-all font-bold"><td className="px-6 py-5 text-center text-slate-500 italic text-lg">{i + 1}</td><td className="px-6 py-5 font-black text-md">{t[lang].rack} {m.rackId}</td><td className="px-6 py-5 font-bold">{t[lang].shelf} {m.level}</td><td className="px-6 py-5 text-emerald-400 font-black text-md">{m.nameKey?t[lang][m.nameKey]:t[lang][m.rackType]}</td><td className="px-6 py-5 text-center font-mono text-gray-500">{m.plantDate}</td><td className="px-6 py-5 text-center font-black text-white text-md">{age}/{m.target}</td><td className="px-6 py-5 text-center font-black text-2xl"><span className={rem <= 0 ? 'text-emerald-400 animate-pulse' : rem <= 5 ? 'text-amber-400' : 'text-blue-500'}>{rem <= 0 ? 0 : rem}</span></td></tr>); 
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* EDIT MODAL */}
+      {editModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl px-4 text-white">
+          <div className="bg-slate-800 border-2 border-slate-600 rounded-[2.5rem] p-6 md:p-8 w-full max-w-sm shadow-2xl animate-in zoom-in duration-300">
+            <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4"><h3 className="text-xl md:text-2xl font-black flex items-center gap-3 text-emerald-400"><CalendarDays /> {t[lang].editPlanting}</h3><button onClick={() => setEditModal({...editModal, isOpen:false})} className="text-gray-400 hover:text-white p-2 bg-slate-700 rounded-full transition-all hover:bg-red-500"><X size={20}/></button></div>
+            <p className="text-sm md:text-lg text-gray-400 mb-6 font-bold">{editModal.title}</p>
+            <div className="mb-6"><label className="block text-xs font-black text-gray-500 mb-2 tracking-widest">{t[lang].plantDate}</label><input type="date" value={editModal.plantDate} onChange={(e) => setEditModal({...editModal, plantDate: e.target.value})} className="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-white text-lg md:text-xl font-bold focus:border-emerald-500 outline-none" /></div>
+            <div className="mb-8"><label className="block text-xs font-black text-gray-500 mb-2 tracking-widest">{t[lang].targetAge}</label><input type="number" min="1" value={editModal.target} onChange={(e) => setEditModal({...editModal, target: Number(e.target.value)})} className="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-white text-center text-2xl md:text-3xl font-black outline-none focus:border-emerald-500" /></div>
+            <div className="flex gap-4 font-black"><button onClick={() => setEditModal({...editModal, isOpen:false})} className="flex-1 py-4 md:py-5 rounded-2xl bg-slate-700">Cancel</button><button onClick={savePlantingData} className="flex-1 py-4 md:py-5 rounded-2xl bg-emerald-600 shadow-lg shadow-emerald-900/40">Save</button></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
