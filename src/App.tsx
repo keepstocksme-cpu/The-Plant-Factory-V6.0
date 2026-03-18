@@ -46,6 +46,12 @@ type RackData = {
   shelves: RackShelf[];
 };
 
+type PlantCatalogEntry = {
+  name: string;
+  icon: string;
+  recipe: RackRecipe;
+};
+
 type SensorData = {
   temp: number;
   humidity: number;
@@ -107,21 +113,124 @@ type LegacyRack = {
 };
 
 const RACKS_STORAGE_KEY = "plant-factory-control-panel-racks";
-const PLANT_OPTIONS = ["Lettuce", "Kale", "Spinach", "Pak Choi", "Basil", "Strawberry"];
+const PLANT_CATALOG_STORAGE_KEY = "plant-factory-plant-catalog";
 const LANG_OPTIONS: Language[] = ["en", "th", "la"];
+const MAX_PLANT_TYPES = 6;
 
 const PLANT_ICON_MAP: Record<string, string> = {
-  Lettuce: "🥬",
-  Kale: "🥬",
-  Spinach: "🌿",
-  "Pak Choi": "🥗",
-  Basil: "🌱",
-  Strawberry: "🍓",
+  lettuce: "🥬",
+  kale: "🥬",
+  spinach: "🌿",
+  "wild rocket": "🌿",
+  "crystal ice plant": "🧊",
 };
 
-const getPlantIcon = (plant: string) => PLANT_ICON_MAP[plant] || "🪴";
+const normalizePlantName = (plant: string) => plant.trim().replace(/\s+/g, " ").toLowerCase();
+const cleanPlantName = (plant: string) => plant.trim().replace(/\s+/g, " ");
+const normalizeRecipe = (recipe?: Partial<RackRecipe>, fallback: RackRecipe = { EC: "1.8", A: "5", B: "5" }): RackRecipe => ({
+  EC: String(recipe?.EC ?? fallback.EC),
+  A: String(recipe?.A ?? fallback.A),
+  B: String(recipe?.B ?? fallback.B),
+});
+const getPlantIcon = (plant: string) => PLANT_ICON_MAP[normalizePlantName(plant)] || "🪴";
 
 const getRackNumber = (rackId: string) => rackId.replace("rack-", "");
+
+const buildDefaultPlantCatalog = (): PlantCatalogEntry[] => [
+  { name: "Kale", icon: getPlantIcon("Kale"), recipe: { EC: "1.8", A: "5", B: "5" } },
+  { name: "Lettuce", icon: getPlantIcon("Lettuce"), recipe: { EC: "1.6", A: "4", B: "4" } },
+  { name: "Spinach", icon: getPlantIcon("Spinach"), recipe: { EC: "1.7", A: "4.5", B: "4.5" } },
+  { name: "Wild Rocket", icon: getPlantIcon("Wild Rocket"), recipe: { EC: "1.9", A: "5", B: "5" } },
+  { name: "Crystal Ice Plant", icon: getPlantIcon("Crystal Ice Plant"), recipe: { EC: "1.4", A: "3", B: "3" } },
+];
+
+const normalizePlantCatalog = (input: unknown): PlantCatalogEntry[] => {
+  const source = Array.isArray(input) ? input : buildDefaultPlantCatalog();
+  const deduped: PlantCatalogEntry[] = [];
+  const seen = new Set<string>();
+
+  for (const item of source) {
+    if (typeof item !== "object" || item === null) continue;
+    const entry = item as Partial<PlantCatalogEntry>;
+    const name = cleanPlantName(String(entry.name ?? ""));
+    if (!name) continue;
+
+    const key = normalizePlantName(name);
+    if (seen.has(key)) continue;
+
+    deduped.push({
+      name,
+      icon: getPlantIcon(name),
+      recipe: normalizeRecipe(entry.recipe),
+    });
+    seen.add(key);
+
+    if (deduped.length === MAX_PLANT_TYPES) break;
+  }
+
+  return deduped.length > 0 ? deduped : buildDefaultPlantCatalog();
+};
+
+const findPlantInCatalog = (catalog: PlantCatalogEntry[], plantName: string) =>
+  catalog.find((entry) => normalizePlantName(entry.name) === normalizePlantName(plantName));
+
+const ensureCatalogCoversRacks = (catalog: PlantCatalogEntry[], racks: RackData[]) => {
+  const nextCatalog = [...catalog];
+
+  for (const rack of racks) {
+    const rackPlant = cleanPlantName(rack.plant);
+    if (!rackPlant || findPlantInCatalog(nextCatalog, rackPlant)) continue;
+    if (nextCatalog.length === MAX_PLANT_TYPES) break;
+
+    nextCatalog.push({
+      name: rackPlant,
+      icon: getPlantIcon(rackPlant),
+      recipe: normalizeRecipe(rack.recipe),
+    });
+  }
+
+  return normalizePlantCatalog(nextCatalog);
+};
+
+const syncRacksWithPlantCatalog = (racks: RackData[], catalog: PlantCatalogEntry[]) =>
+  racks.map((rack) => {
+    const plantEntry = findPlantInCatalog(catalog, rack.plant);
+
+    if (!plantEntry) {
+      const cleanedPlant = cleanPlantName(rack.plant);
+      return {
+        ...rack,
+        plant: cleanedPlant,
+        icon: getPlantIcon(cleanedPlant),
+        recipe: normalizeRecipe(rack.recipe),
+      };
+    }
+
+    return {
+      ...rack,
+      plant: plantEntry.name,
+      icon: plantEntry.icon,
+      recipe: { ...plantEntry.recipe },
+    };
+  });
+
+const deriveActivePlants = (racks: RackData[], catalog: PlantCatalogEntry[]) => {
+  const activePlants: PlantCatalogEntry[] = [];
+  const seen = new Set<string>();
+
+  for (const rack of racks) {
+    const plantEntry = findPlantInCatalog(catalog, rack.plant);
+    if (!plantEntry) continue;
+
+    const key = normalizePlantName(plantEntry.name);
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    activePlants.push(plantEntry);
+  }
+
+  return activePlants;
+};
 
 const buildDefaultRacksData = (): RackData[] => [
   {
@@ -152,9 +261,9 @@ const buildDefaultRacksData = (): RackData[] => [
   },
   {
     id: "rack-3",
-    plant: "Basil",
-    icon: getPlantIcon("Basil"),
-    recipe: { EC: "1.4", A: "3", B: "3" },
+    plant: "Spinach",
+    icon: getPlantIcon("Spinach"),
+    recipe: { EC: "1.7", A: "4.5", B: "4.5" },
     shelves: [
       { level: 3, zone: 12, plantDate: "2026-01-20", target: 30 },
       { level: 2, zone: 11, plantDate: "2026-01-15", target: 60 },
@@ -211,6 +320,29 @@ const normalizeRackData = (input: unknown): RackData[] => {
       shelves,
     };
   });
+};
+
+const loadInitialPlantFactoryState = () => {
+  if (typeof window === "undefined") {
+    const defaultCatalog = buildDefaultPlantCatalog();
+    const defaultRacks = syncRacksWithPlantCatalog(buildDefaultRacksData(), defaultCatalog);
+    return { plantCatalog: defaultCatalog, racksData: defaultRacks };
+  }
+
+  try {
+    const savedRacks = normalizeRackData(JSON.parse(window.localStorage.getItem(RACKS_STORAGE_KEY) ?? "null"));
+    const savedCatalog = normalizePlantCatalog(JSON.parse(window.localStorage.getItem(PLANT_CATALOG_STORAGE_KEY) ?? "null"));
+    const plantCatalog = ensureCatalogCoversRacks(savedCatalog, savedRacks);
+    return {
+      plantCatalog,
+      racksData: syncRacksWithPlantCatalog(savedRacks, plantCatalog),
+    };
+  } catch (error) {
+    console.error("Failed to load plant factory state", error);
+    const defaultCatalog = buildDefaultPlantCatalog();
+    const defaultRacks = syncRacksWithPlantCatalog(buildDefaultRacksData(), defaultCatalog);
+    return { plantCatalog: defaultCatalog, racksData: defaultRacks };
+  }
 };
 
 const renderIcon = (name: string, size: number = 20, className: string = "") => {
@@ -330,7 +462,7 @@ const LightingControl = ({ lights, handleToggleLight, lang, isDesktop }: { light
   );
 };
 
-const FertigationControl = ({ racksData, updateRackPlant, updateRackRecipe, pumps, handleTogglePump, distZones, handleToggleDist, lang, isDesktop }: { racksData: RackData[]; updateRackPlant: (rackId: string, plant: string) => void; updateRackRecipe: (rackId: string, field: keyof RackRecipe, value: string) => void; pumps: PumpState; handleTogglePump: (key: keyof PumpState, label: string) => void; distZones: DistZoneState; handleToggleDist: (key: keyof DistZoneState, label: string) => void; lang: Language; isDesktop: boolean; }) => {
+const FertigationControl = ({ activePlants, updatePlantRecipe, pumps, handleTogglePump, distZones, handleToggleDist, lang, isDesktop }: { activePlants: PlantCatalogEntry[]; updatePlantRecipe: (plantName: string, field: keyof RackRecipe, value: string) => void; pumps: PumpState; handleTogglePump: (key: keyof PumpState, label: string) => void; distZones: DistZoneState; handleToggleDist: (key: keyof DistZoneState, label: string) => void; lang: Language; isDesktop: boolean; }) => {
   const [isOpen, setIsOpen] = useState(true);
   const pumpButtons: { id: keyof PumpState; label: string; ic: string; col: string }[] = [
     { id: "a", label: t[lang].pumpA, ic: "FlaskConical", col: "emerald" },
@@ -357,29 +489,16 @@ const FertigationControl = ({ racksData, updateRackPlant, updateRackRecipe, pump
         <>
           <p className="text-[9px] md:text-[10px] text-gray-400 mb-4 md:mb-6 font-medium normal-case">{t[lang].fertNote}</p>
           <div className="grid grid-cols-1 gap-3 md:gap-4 mb-6 shrink-0">
-            {racksData.map((rack) => (
-              <div key={rack.id} className="bg-slate-900/90 rounded-2xl p-4 md:p-5 border-2 border-slate-700 shadow-inner relative overflow-hidden">
+            {activePlants.map((plant) => (
+              <div key={normalizePlantName(plant.name)} className="bg-slate-900/90 rounded-2xl p-4 md:p-5 border-2 border-slate-700 shadow-inner relative overflow-hidden">
                 <div className="flex items-center justify-between mb-4 text-blue-400 tracking-widest text-[9px] md:text-[11px]">
-                  <div className="flex items-center gap-1.5 md:gap-2"><Calculator size={14} /> {t[lang].rack} {getRackNumber(rack.id)}</div>
+                  <div className="flex items-center gap-1.5 md:gap-2"><Calculator size={14} /> Active Plant Recipe</div>
                   <div className="flex items-center gap-2 rounded-full border border-blue-500/40 bg-blue-500/10 px-2 md:px-3 py-1 text-[10px] md:text-xs">
-                    <span aria-hidden="true" className="text-base">{rack.icon}</span>
-                    <span>{rack.plant}</span>
+                    <span aria-hidden="true" className="text-base">{plant.icon}</span>
+                    <span>{plant.name}</span>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_2fr] gap-3 md:gap-4 items-start">
-                  <div>
-                    <label className="mb-2 block text-[8px] md:text-[10px] text-gray-500 font-black tracking-widest">Plant</label>
-                    <select
-                      value={rack.plant}
-                      onChange={(event) => updateRackPlant(rack.id, event.target.value)}
-                      className="w-full rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-sm md:text-base text-white outline-none focus:border-emerald-500"
-                    >
-                      {PLANT_OPTIONS.map((plant) => (
-                        <option key={plant} value={plant}>{plant}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 md:gap-3 text-center">
+                <div className="grid grid-cols-3 gap-2 md:gap-3 text-center">
                     {[
                       { key: "EC", label: "EC", color: "text-yellow-400" },
                       { key: "A", label: "A", color: "text-emerald-400" },
@@ -390,13 +509,12 @@ const FertigationControl = ({ racksData, updateRackPlant, updateRackRecipe, pump
                         <input
                           type="text"
                           inputMode="decimal"
-                          value={rack.recipe[field.key as keyof RackRecipe]}
-                          onChange={(event) => updateRackRecipe(rack.id, field.key as keyof RackRecipe, event.target.value)}
+                          value={plant.recipe[field.key as keyof RackRecipe]}
+                          onChange={(event) => updatePlantRecipe(plant.name, field.key as keyof RackRecipe, event.target.value)}
                           className={`w-full bg-transparent text-center text-lg md:text-2xl ${field.color} outline-none`}
                         />
                       </div>
                     ))}
-                  </div>
                 </div>
               </div>
             ))}
@@ -489,22 +607,15 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [editModal, setEditModal] = useState<EditModalState>({ isOpen: false, rackId: null, zone: null, plant: "", recipe: { EC: "", A: "", B: "" }, plantDate: "", target: 0, title: "" });
+  const [plantCatalog, setPlantCatalog] = useState<PlantCatalogEntry[]>(() => loadInitialPlantFactoryState().plantCatalog);
+  const [catalogWarning, setCatalogWarning] = useState("");
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const currentAudioFileRef = useRef<string | null>(null);
 
-  const [racksData, setRacksData] = useState<RackData[]>(() => {
-    if (typeof window === "undefined") return buildDefaultRacksData();
-
-    try {
-      const saved = window.localStorage.getItem(RACKS_STORAGE_KEY);
-      return saved ? normalizeRackData(JSON.parse(saved)) : buildDefaultRacksData();
-    } catch (error) {
-      console.error("Failed to load rack state", error);
-      return buildDefaultRacksData();
-    }
-  });
+  const [racksData, setRacksData] = useState<RackData[]>(() => loadInitialPlantFactoryState().racksData);
+  const activePlants = deriveActivePlants(racksData, plantCatalog);
 
   // Handlers
   const speakVoice = useCallback((text: string) => {
@@ -551,26 +662,25 @@ export default function App() {
     sendCommandToESP("dist", k, next ? "on" : "off");
   };
 
-  const updateRack = (rackId: string, updater: (rack: RackData) => RackData) => {
-    setRacksData((prev) => prev.map((rack) => (rack.id === rackId ? updater(rack) : rack)));
-  };
+  const updatePlantCatalogRecipe = (plantName: string, field: keyof RackRecipe, value: string) => {
+    setPlantCatalog((prevCatalog) => {
+      const nextCatalog = normalizePlantCatalog(
+        prevCatalog.map((entry) =>
+          normalizePlantName(entry.name) === normalizePlantName(plantName)
+            ? {
+                ...entry,
+                recipe: {
+                  ...entry.recipe,
+                  [field]: value,
+                },
+              }
+            : entry,
+        ),
+      );
 
-  const updateRackPlant = (rackId: string, plant: string) => {
-    updateRack(rackId, (rack) => ({
-      ...rack,
-      plant,
-      icon: getPlantIcon(plant),
-    }));
-  };
-
-  const updateRackRecipe = (rackId: string, field: keyof RackRecipe, value: string) => {
-    updateRack(rackId, (rack) => ({
-      ...rack,
-      recipe: {
-        ...rack.recipe,
-        [field]: value,
-      },
-    }));
+      setRacksData((prevRacks) => syncRacksWithPlantCatalog(prevRacks, nextCatalog));
+      return nextCatalog;
+    });
   };
 
   const handleShelfClick = (rackId: string, shelfLevel: number, plant: string) => {
@@ -591,25 +701,82 @@ export default function App() {
   };
 
   const savePlantingData = () => {
+    if (!editModal.rackId) return;
+
+    const plantName = cleanPlantName(editModal.plant);
+    if (!plantName) {
+      setCatalogWarning("Plant name is required.");
+      return;
+    }
+
+    const currentRack = racksData.find((rack) => rack.id === editModal.rackId);
+    if (!currentRack) return;
+
+    const currentPlantKey = normalizePlantName(currentRack.plant);
+    const nextPlantKey = normalizePlantName(plantName);
+    const existingTargetPlant = findPlantInCatalog(plantCatalog, plantName);
+
+    let nextCatalog = [...plantCatalog];
+
+    if (nextPlantKey === currentPlantKey || existingTargetPlant) {
+      const plantKeyToUpdate = existingTargetPlant ? normalizePlantName(existingTargetPlant.name) : currentPlantKey;
+
+      nextCatalog = normalizePlantCatalog(
+        nextCatalog.map((entry) =>
+          normalizePlantName(entry.name) === plantKeyToUpdate
+            ? {
+                ...entry,
+                name: plantName,
+                icon: getPlantIcon(plantName),
+                recipe: normalizeRecipe(editModal.recipe),
+              }
+            : entry,
+        ),
+      );
+    } else {
+      if (plantCatalog.length >= MAX_PLANT_TYPES) {
+        setCatalogWarning("Plant catalog limit reached. Maximum 6 unique plant types.");
+        return;
+      }
+
+      nextCatalog = normalizePlantCatalog([
+        ...nextCatalog,
+        {
+          name: plantName,
+          icon: getPlantIcon(plantName),
+          recipe: normalizeRecipe(editModal.recipe),
+        },
+      ]);
+    }
+
+    const resolvedPlant = findPlantInCatalog(nextCatalog, plantName);
+    if (!resolvedPlant) {
+      setCatalogWarning("Unable to save plant settings.");
+      return;
+    }
+
+    setPlantCatalog(nextCatalog);
     setRacksData((prev) =>
-      prev.map((rack) =>
-        rack.id === editModal.rackId
-          ? {
-              ...rack,
-              plant: editModal.plant,
-              icon: getPlantIcon(editModal.plant),
-              recipe: {
-                ...editModal.recipe,
-              },
-              shelves: rack.shelves.map((shelf) =>
-                shelf.zone === editModal.zone
-                  ? { ...shelf, plantDate: editModal.plantDate, target: Number(editModal.target) }
-                  : shelf,
-              ),
-            }
-          : rack,
+      syncRacksWithPlantCatalog(
+        prev.map((rack) =>
+          rack.id === editModal.rackId
+            ? {
+                ...rack,
+                plant: resolvedPlant.name,
+                icon: resolvedPlant.icon,
+                recipe: { ...resolvedPlant.recipe },
+                shelves: rack.shelves.map((shelf) =>
+                  shelf.zone === editModal.zone
+                    ? { ...shelf, plantDate: editModal.plantDate, target: Number(editModal.target) }
+                    : shelf,
+                ),
+              }
+            : rack,
+        ),
+        nextCatalog,
       ),
     );
+    setCatalogWarning("");
     setEditModal((prev) => ({ ...prev, isOpen: false }));
     speakVoice("บันทึกข้อมูลเรียบร้อย");
   };
@@ -626,6 +793,9 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(RACKS_STORAGE_KEY, JSON.stringify(racksData));
   }, [racksData]);
+  useEffect(() => {
+    window.localStorage.setItem(PLANT_CATALOG_STORAGE_KEY, JSON.stringify(plantCatalog));
+  }, [plantCatalog]);
   useEffect(() => {
     const playAuto = () => {
       if (globalHasPlayedWelcome) return; globalHasPlayedWelcome = true;
@@ -685,7 +855,7 @@ export default function App() {
               </div> 
               <div className="xl:col-span-1 flex flex-col gap-6 md:gap-8 text-white font-black uppercase flex-1 h-full">
                  <LightingControl lights={lights} handleToggleLight={handleToggleLight} lang={lang} isDesktop={true} />
-                 <FertigationControl racksData={racksData} updateRackPlant={updateRackPlant} updateRackRecipe={updateRackRecipe} pumps={pumps} handleTogglePump={handleTogglePump} distZones={distZones} handleToggleDist={handleToggleDist} lang={lang} isDesktop={true} />
+                 <FertigationControl activePlants={activePlants} updatePlantRecipe={updatePlantCatalogRecipe} pumps={pumps} handleTogglePump={handleTogglePump} distZones={distZones} handleToggleDist={handleToggleDist} lang={lang} isDesktop={true} />
                  <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-xl mt-4">
                     <h3 className="text-gray-400 text-xs mb-3 uppercase tracking-wider flex items-center gap-2"><Zap size={14} className="text-yellow-400"/> ESP32 IP</h3>
                     <input type="text" value={espIp} onChange={(e) => setEspIp(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm font-mono" />
@@ -717,14 +887,14 @@ export default function App() {
       {editModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl px-4 text-white">
           <div className="bg-slate-800 border-2 border-slate-600 rounded-[2.5rem] p-6 md:p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
-            <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4"><h3 className="text-xl md:text-2xl font-black flex items-center gap-3 text-emerald-400"><CalendarDays /> {t[lang].editPlanting}</h3><button onClick={() => setEditModal({...editModal, isOpen:false})} className="text-gray-400 hover:text-white p-2 bg-slate-700 rounded-full transition-all hover:bg-red-500"><X size={20}/></button></div>
+            <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4"><h3 className="text-xl md:text-2xl font-black flex items-center gap-3 text-emerald-400"><CalendarDays /> {t[lang].editPlanting}</h3><button onClick={() => { setCatalogWarning(""); setEditModal({...editModal, isOpen:false}); }} className="text-gray-400 hover:text-white p-2 bg-slate-700 rounded-full transition-all hover:bg-red-500"><X size={20}/></button></div>
             <p className="text-sm md:text-lg text-gray-400 mb-6 font-bold">{editModal.title}</p>
             <div className="mb-6">
               <label className="block text-xs font-black text-gray-500 mb-2 tracking-widest">Plant Name</label>
               <input
                 type="text"
                 value={editModal.plant}
-                onChange={(e) => setEditModal({ ...editModal, plant: e.target.value })}
+                onChange={(e) => { setCatalogWarning(""); setEditModal({ ...editModal, plant: e.target.value }); }}
                 className="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-white text-lg md:text-xl font-bold focus:border-emerald-500 outline-none"
               />
             </div>
@@ -740,23 +910,25 @@ export default function App() {
                     type="text"
                     inputMode="decimal"
                     value={editModal.recipe[field.key as keyof RackRecipe]}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setCatalogWarning("");
                       setEditModal({
                         ...editModal,
                         recipe: {
                           ...editModal.recipe,
                           [field.key]: e.target.value,
                         },
-                      })
-                    }
+                      });
+                    }}
                     className={`w-full bg-slate-900 border-2 border-slate-700 rounded-2xl px-3 py-3 text-center text-lg md:text-xl font-black focus:border-emerald-500 outline-none ${field.color}`}
                   />
                 </div>
               ))}
             </div>
+            {catalogWarning && <p className="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm normal-case text-amber-300">{catalogWarning}</p>}
             <div className="mb-6"><label className="block text-xs font-black text-gray-500 mb-2 tracking-widest">{t[lang].plantDate}</label><input type="date" value={editModal.plantDate} onChange={(e) => setEditModal({...editModal, plantDate: e.target.value})} className="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-white text-lg md:text-xl font-bold focus:border-emerald-500 outline-none" /></div>
             <div className="mb-8"><label className="block text-xs font-black text-gray-500 mb-2 tracking-widest">{t[lang].targetAge}</label><input type="number" min="1" value={editModal.target} onChange={(e) => setEditModal({...editModal, target: Number(e.target.value)})} className="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-white text-center text-2xl md:text-3xl font-black outline-none focus:border-emerald-500" /></div>
-            <div className="flex gap-4 font-black"><button onClick={() => setEditModal({...editModal, isOpen:false})} className="flex-1 py-4 md:py-5 rounded-2xl bg-slate-700">Cancel</button><button onClick={savePlantingData} className="flex-1 py-4 md:py-5 rounded-2xl bg-emerald-600 shadow-lg shadow-emerald-900/40">Save</button></div>
+            <div className="flex gap-4 font-black"><button onClick={() => { setCatalogWarning(""); setEditModal({...editModal, isOpen:false}); }} className="flex-1 py-4 md:py-5 rounded-2xl bg-slate-700">Cancel</button><button onClick={savePlantingData} className="flex-1 py-4 md:py-5 rounded-2xl bg-emerald-600 shadow-lg shadow-emerald-900/40">Save</button></div>
           </div>
         </div>
       )}
