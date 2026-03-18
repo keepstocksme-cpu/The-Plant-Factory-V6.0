@@ -89,6 +89,8 @@ type EditModalState = {
   isOpen: boolean;
   rackId: string | null;
   zone: number | null;
+  plant: string;
+  recipe: RackRecipe;
   plantDate: string;
   target: number;
   title: string;
@@ -283,7 +285,7 @@ const RacksDisplay = ({ racksData, lights, handleShelfClick, setEditModal, handl
                     </div>
                   </div>
                   <div className="flex items-center gap-1 md:gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); setEditModal({ isOpen: true, rackId: rack.id, zone: shelf.zone, plantDate: shelf.plantDate, target: shelf.target, title: `${t[lang].rack} ${getRackNumber(rack.id)} - ${t[lang].shelf} ${shelf.level}` }); }} className="p-1.5 rounded-full bg-slate-800 text-gray-400 hover:text-white border border-slate-700 transition-colors shadow-sm"><Edit2 size={12} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setEditModal({ isOpen: true, rackId: rack.id, zone: shelf.zone, plant: rack.plant, recipe: { ...rack.recipe }, plantDate: shelf.plantDate, target: shelf.target, title: `${t[lang].rack} ${getRackNumber(rack.id)} - ${t[lang].shelf} ${shelf.level}` }); }} className="p-1.5 rounded-full bg-slate-800 text-gray-400 hover:text-white border border-slate-700 transition-colors shadow-sm"><Edit2 size={12} /></button>
                     <button onClick={(e) => { e.stopPropagation(); handleToggleLight(shelf.zone); }} className={`p-1.5 rounded-full transition-all ${isOn ? "bg-yellow-500/20 text-yellow-400 shadow-[0_0_10px_#eab308]" : "bg-slate-800 text-gray-600"}`}><Power size={14} /></button>
                   </div>
                 </div>
@@ -486,7 +488,7 @@ export default function App() {
   const [climate, setClimate] = useState<ClimateState>({ ac: true, dehumidifier: false, co2: false, fan: false });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
-  const [editModal, setEditModal] = useState<EditModalState>({ isOpen: false, rackId: null, zone: null, plantDate: '', target: 0, title: '' });
+  const [editModal, setEditModal] = useState<EditModalState>({ isOpen: false, rackId: null, zone: null, plant: "", recipe: { EC: "", A: "", B: "" }, plantDate: "", target: 0, title: "" });
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -589,8 +591,26 @@ export default function App() {
   };
 
   const savePlantingData = () => {
-    setRacksData(prev => prev.map(r => r.id === editModal.rackId ? { ...r, shelves: r.shelves.map((s) => s.zone === editModal.zone ? { ...s, plantDate: editModal.plantDate, target: Number(editModal.target) } : s) } : r));
-    setEditModal({ ...editModal, isOpen: false });
+    setRacksData((prev) =>
+      prev.map((rack) =>
+        rack.id === editModal.rackId
+          ? {
+              ...rack,
+              plant: editModal.plant,
+              icon: getPlantIcon(editModal.plant),
+              recipe: {
+                ...editModal.recipe,
+              },
+              shelves: rack.shelves.map((shelf) =>
+                shelf.zone === editModal.zone
+                  ? { ...shelf, plantDate: editModal.plantDate, target: Number(editModal.target) }
+                  : shelf,
+              ),
+            }
+          : rack,
+      ),
+    );
+    setEditModal((prev) => ({ ...prev, isOpen: false }));
     speakVoice("บันทึกข้อมูลเรียบร้อย");
   };
 
@@ -696,9 +716,44 @@ export default function App() {
       {/* EDIT MODAL */}
       {editModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl px-4 text-white">
-          <div className="bg-slate-800 border-2 border-slate-600 rounded-[2.5rem] p-6 md:p-8 w-full max-w-sm shadow-2xl animate-in zoom-in duration-300">
+          <div className="bg-slate-800 border-2 border-slate-600 rounded-[2.5rem] p-6 md:p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
             <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4"><h3 className="text-xl md:text-2xl font-black flex items-center gap-3 text-emerald-400"><CalendarDays /> {t[lang].editPlanting}</h3><button onClick={() => setEditModal({...editModal, isOpen:false})} className="text-gray-400 hover:text-white p-2 bg-slate-700 rounded-full transition-all hover:bg-red-500"><X size={20}/></button></div>
             <p className="text-sm md:text-lg text-gray-400 mb-6 font-bold">{editModal.title}</p>
+            <div className="mb-6">
+              <label className="block text-xs font-black text-gray-500 mb-2 tracking-widest">Plant Name</label>
+              <input
+                type="text"
+                value={editModal.plant}
+                onChange={(e) => setEditModal({ ...editModal, plant: e.target.value })}
+                className="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-white text-lg md:text-xl font-bold focus:border-emerald-500 outline-none"
+              />
+            </div>
+            <div className="mb-6 grid grid-cols-3 gap-3">
+              {[
+                { key: "EC", label: "EC", color: "text-yellow-400" },
+                { key: "A", label: "A", color: "text-emerald-400" },
+                { key: "B", label: "B", color: "text-purple-400" },
+              ].map((field) => (
+                <div key={field.key}>
+                  <label className="block text-xs font-black text-gray-500 mb-2 tracking-widest">{field.label}</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={editModal.recipe[field.key as keyof RackRecipe]}
+                    onChange={(e) =>
+                      setEditModal({
+                        ...editModal,
+                        recipe: {
+                          ...editModal.recipe,
+                          [field.key]: e.target.value,
+                        },
+                      })
+                    }
+                    className={`w-full bg-slate-900 border-2 border-slate-700 rounded-2xl px-3 py-3 text-center text-lg md:text-xl font-black focus:border-emerald-500 outline-none ${field.color}`}
+                  />
+                </div>
+              ))}
+            </div>
             <div className="mb-6"><label className="block text-xs font-black text-gray-500 mb-2 tracking-widest">{t[lang].plantDate}</label><input type="date" value={editModal.plantDate} onChange={(e) => setEditModal({...editModal, plantDate: e.target.value})} className="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-white text-lg md:text-xl font-bold focus:border-emerald-500 outline-none" /></div>
             <div className="mb-8"><label className="block text-xs font-black text-gray-500 mb-2 tracking-widest">{t[lang].targetAge}</label><input type="number" min="1" value={editModal.target} onChange={(e) => setEditModal({...editModal, target: Number(e.target.value)})} className="w-full bg-slate-900 border-2 border-slate-700 rounded-2xl px-4 py-3 md:px-6 md:py-4 text-white text-center text-2xl md:text-3xl font-black outline-none focus:border-emerald-500" /></div>
             <div className="flex gap-4 font-black"><button onClick={() => setEditModal({...editModal, isOpen:false})} className="flex-1 py-4 md:py-5 rounded-2xl bg-slate-700">Cancel</button><button onClick={savePlantingData} className="flex-1 py-4 md:py-5 rounded-2xl bg-emerald-600 shadow-lg shadow-emerald-900/40">Save</button></div>
