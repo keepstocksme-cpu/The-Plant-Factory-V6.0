@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 import {
-  Home, Sliders, MessageSquare, Settings, Thermometer, Droplets, Wind, Zap, Beaker,
+  Home, Thermometer, Droplets, Wind, Zap, Beaker,
   Mic, Image as ImageIcon, Send, Power, Edit2, X, CalendarDays, Clock,
-  Bot, Droplet, FlaskConical, Waves, Timer, ShieldAlert, ScanSearch, HelpCircle, Calculator,
-  Settings2, Activity, MonitorPlay, Volume2, Leaf, Sprout, Apple, Fan, Layers, Box,
-  ChevronDown, ChevronUp, ArrowRight, BarChart3, RefreshCw
+  Bot, Droplet, FlaskConical, Waves, Timer, ShieldAlert, ScanSearch, Calculator,
+  Activity, MonitorPlay, Fan, Layers, Box,
+  ChevronDown, ChevronUp
 } from "lucide-react";
 
 // ============================================================================
 // 1. GLOBAL DICTIONARIES & HELPER FUNCTIONS
 // ============================================================================
-const t: any = {
+const t = {
   th: {
     brand: "THE PLANT FACTORY เวียงจันทน์", dashboard: "แดชบอร์ด", harvestTab: "เก็บเกี่ยว", commandCenter: "ศูนย์บัญชาการฟาร์ม", controls: "ควบคุม", aiAssistant: "Monday AI", settings: "ตั้งค่า", lighting: "ระบบแสง (16 โซน)", fertigation: "ระบบปรุงปุ๋ยและจัดการ PH", climate: "สภาพอากาศ", kale: "ผักเคล", salad: "ผักสลัด", bellPepper: "พริกหยวก", cucumber: "แตงกวาญี่ปุ่น", seedling: "ต้นกล้า", rack: "แร็คที่", shelf: "ชั้นที่", growth: "การ\nเติบโต", days: "วัน", editPlanting: "แก้ไขวันปลูก", plantDate: "วันที่เริ่มปลูก", targetAge: "รอบปลูก", distribute: "ระบบจ่ายปุ๋ย (5 โซน)", fertNote: "คลิกเลือกชนิดพืชที่คุณต้องการปลูก ระบบจะแนะนำปริมาณปุ๋ยที่เหมาะสม", welcomeTH: "ต้อนรับ (TH)", welcomeLA: "ต้อนรับ (LA)", zone1: "ชั้นปลูกที่ 1", zone2: "ชั้นปลูกที่ 2", zone3: "ชั้นปลูกที่ 3", zone4: "ชั้นปลูกพริกหยวก", zone5: "ชั้นปลูกแตงกวาญี่ปุ่น", pumpA: "เติมปุ๋ย A", pumpB: "เติมปุ๋ย B", acid: "เติม PH ลด", base: "เติม PH เพิ่ม", water: "เติมน้ำเปล่า", stir: "ปั๊มกวนผสม", systemMetrics: "พารามิเตอร์ระบบ", backToSim: "กลับสู่หน้าจำลองแร็ค", harvestSchedule: "ตารางรอบการเก็บเกี่ยว", plantType: "ชนิดพืช", status: "สถานะ", readyToHarvest: "พร้อมเก็บเกี่ยว", nearHarvest: "ใกล้เก็บเกี่ยว", growing: "กำลังเจริญเติบโต", chatPlaceholder: "พิมพ์สั่งการ Monday AI..."
   },
@@ -20,19 +21,198 @@ const t: any = {
   en: {
     brand: "THE PLANT FACTORY VIENTIANE", dashboard: "Dashboard", harvestTab: "Harvest", commandCenter: "Command Center", controls: "Controls", aiAssistant: "Monday AI", settings: "Settings", lighting: "Lighting (16 Zones)", fertigation: "Fertigation & pH System", climate: "Climate", kale: "Kale", salad: "Salad", bellPepper: "Bell Pepper", cucumber: "Cucumber", seedling: "Seedling", rack: "Rack", shelf: "Shelf", growth: "Growth", days: "Days", editPlanting: "Edit Planting", plantDate: "Plant Date", targetAge: "Cycle", distribute: "Distribution (5 Zones)", fertNote: "Select plant type for optimal nutrient recommendation", welcomeTH: "Welcome (TH)", welcomeLA: "Welcome (LA)", zone1: "Grow Shelf 1", zone2: "Grow Shelf 2", zone3: "Grow Shelf 3", zone4: "Bell Pepper Shelf", zone5: "Cucumber Shelf", pumpA: "Add Fert A", pumpB: "Add Fert B", acid: "pH Down", base: "pH Up", water: "Add Water", stir: "Mixing Pump", systemMetrics: "System Metrics", backToSim: "Back to Simulator", harvestSchedule: "Harvest Schedule Table", plantType: "Plant Type", status: "Status", readyToHarvest: "Ready to Harvest", nearHarvest: "Near Harvest", growing: "Growing", chatPlaceholder: "Message Monday AI..."
   }
+} as const;
+
+type Language = keyof typeof t;
+
+type RackRecipe = {
+  EC: string;
+  A: string;
+  B: string;
 };
 
-const plantConfigs: any = {
-  kale: { ppm: 2000, a: 1.2, b: 1.2, water: 30, color: "text-emerald-400", bg: "bg-emerald-500/10", icon: 'Leaf' },
-  salad: { ppm: 1400, a: 0.8, b: 0.8, water: 40, color: "text-green-400", bg: "bg-green-500/10", icon: 'Leaf' },
-  bellPepper: { ppm: 2200, a: 1.5, b: 1.5, water: 25, color: "text-red-400", bg: "bg-red-500/10", icon: 'Apple' },
-  cucumber: { ppm: 2000, a: 1.4, b: 1.4, water: 30, color: "text-lime-400", bg: "bg-lime-500/10", icon: 'Apple' },
-  seedling: { ppm: 800, a: 0.4, b: 0.4, water: 50, color: "text-blue-400", bg: "bg-blue-500/10", icon: 'Sprout' }
+type RackShelf = {
+  level: number;
+  zone: number;
+  plantDate: string;
+  target: number;
+};
+
+type RackData = {
+  id: string;
+  plant: string;
+  icon: string;
+  recipe: RackRecipe;
+  shelves: RackShelf[];
+};
+
+type SensorData = {
+  temp: number;
+  humidity: number;
+  ph: number;
+  ec: number;
+  co2: number;
+  do: number;
+};
+
+type PumpState = {
+  a: boolean;
+  b: boolean;
+  acid: boolean;
+  base: boolean;
+  water: boolean;
+  stir: boolean;
+};
+
+type DistZoneState = {
+  z1: boolean;
+  z2: boolean;
+  z3: boolean;
+  z4: boolean;
+  z5: boolean;
+};
+
+type ClimateState = {
+  ac: boolean;
+  dehumidifier: boolean;
+  co2: boolean;
+  fan: boolean;
+};
+
+type ChatMessage = {
+  id: number;
+  sender: "user" | "ai";
+  text: string;
+};
+
+type EditModalState = {
+  isOpen: boolean;
+  rackId: string | null;
+  zone: number | null;
+  plantDate: string;
+  target: number;
+  title: string;
+};
+
+type LegacyShelf = Partial<RackShelf>;
+
+type LegacyRack = {
+  id?: string | number;
+  plant?: string;
+  typeKey?: string;
+  recipe?: Partial<RackRecipe>;
+  shelves?: LegacyShelf[];
+};
+
+const RACKS_STORAGE_KEY = "plant-factory-control-panel-racks";
+const PLANT_OPTIONS = ["Lettuce", "Kale", "Spinach", "Pak Choi", "Basil", "Strawberry"];
+
+const PLANT_ICON_MAP: Record<string, string> = {
+  Lettuce: "🥬",
+  Kale: "🥬",
+  Spinach: "🌿",
+  "Pak Choi": "🥗",
+  Basil: "🌱",
+  Strawberry: "🍓",
+};
+
+const getPlantIcon = (plant: string) => PLANT_ICON_MAP[plant] || "🪴";
+
+const getRackNumber = (rackId: string) => rackId.replace("rack-", "");
+
+const buildDefaultRacksData = (): RackData[] => [
+  {
+    id: "rack-1",
+    plant: "Kale",
+    icon: getPlantIcon("Kale"),
+    recipe: { EC: "1.8", A: "5", B: "5" },
+    shelves: [
+      { level: 5, zone: 4, plantDate: "2026-01-10", target: 45 },
+      { level: 4, zone: 3, plantDate: "2026-01-15", target: 45 },
+      { level: 3, zone: 2, plantDate: "2026-01-20", target: 45 },
+      { level: 2, zone: 1, plantDate: "2026-01-28", target: 45 },
+      { level: 1, zone: 0, plantDate: "2026-02-10", target: 45 },
+    ],
+  },
+  {
+    id: "rack-2",
+    plant: "Lettuce",
+    icon: getPlantIcon("Lettuce"),
+    recipe: { EC: "1.6", A: "4", B: "4" },
+    shelves: [
+      { level: 5, zone: 9, plantDate: "2026-01-12", target: 45 },
+      { level: 4, zone: 8, plantDate: "2026-01-18", target: 45 },
+      { level: 3, zone: 7, plantDate: "2026-01-25", target: 45 },
+      { level: 2, zone: 6, plantDate: "2026-02-02", target: 45 },
+      { level: 1, zone: 5, plantDate: "2026-02-12", target: 45 },
+    ],
+  },
+  {
+    id: "rack-3",
+    plant: "Basil",
+    icon: getPlantIcon("Basil"),
+    recipe: { EC: "1.4", A: "3", B: "3" },
+    shelves: [
+      { level: 3, zone: 12, plantDate: "2026-01-20", target: 30 },
+      { level: 2, zone: 11, plantDate: "2026-01-15", target: 60 },
+      { level: 1, zone: 10, plantDate: "2026-02-15", target: 15 },
+    ],
+  },
+];
+
+const getLegacyPlantName = (rack: LegacyRack | undefined, fallbackPlant: string) => {
+  const typeMap: Record<string, string> = {
+    kale: "Kale",
+    salad: "Lettuce",
+    seedling: "Basil",
+    cucumber: "Pak Choi",
+    bellPepper: "Strawberry",
+  };
+
+  if (typeof rack?.plant === "string" && rack.plant.trim()) return rack.plant;
+  if (typeof rack?.typeKey === "string" && typeMap[rack.typeKey]) return typeMap[rack.typeKey];
+  return fallbackPlant;
+};
+
+const normalizeRackData = (input: unknown): RackData[] => {
+  const defaults = buildDefaultRacksData();
+  if (!Array.isArray(input)) return defaults;
+
+  return defaults.map((defaultRack, index) => {
+    const savedRack = input.find((item): item is LegacyRack => {
+      if (typeof item !== "object" || item === null) return false;
+      const rack = item as LegacyRack;
+      return rack.id === defaultRack.id || rack.id === index + 1;
+    });
+    const plant = getLegacyPlantName(savedRack, defaultRack.plant);
+    const recipe = {
+      EC: String(savedRack?.recipe?.EC ?? defaultRack.recipe.EC),
+      A: String(savedRack?.recipe?.A ?? defaultRack.recipe.A),
+      B: String(savedRack?.recipe?.B ?? defaultRack.recipe.B),
+    };
+
+    const shelves = Array.isArray(savedRack?.shelves) && savedRack.shelves.length > 0
+      ? savedRack.shelves.map((shelf: LegacyShelf, shelfIndex: number) => ({
+          level: Number(shelf?.level ?? defaultRack.shelves[shelfIndex]?.level ?? shelfIndex + 1),
+          zone: Number(shelf?.zone ?? defaultRack.shelves[shelfIndex]?.zone ?? shelfIndex),
+          plantDate: String(shelf?.plantDate ?? defaultRack.shelves[shelfIndex]?.plantDate ?? ""),
+          target: Number(shelf?.target ?? defaultRack.shelves[shelfIndex]?.target ?? 0),
+        }))
+      : defaultRack.shelves;
+
+    return {
+      id: defaultRack.id,
+      plant,
+      icon: getPlantIcon(plant),
+      recipe,
+      shelves,
+    };
+  });
 };
 
 const renderIcon = (name: string, size: number = 20, className: string = "") => {
-  const icons: any = { Sprout, Apple, Leaf, Layers, Box, Fan, Thermometer, Droplets, Wind, Zap, Beaker, FlaskConical, ShieldAlert, Droplet, Waves, Activity, Power, ScanSearch, Clock, Calculator, Timer };
-  const IconComponent = icons[name] || Leaf;
+  const icons: Record<string, typeof Activity> = { Layers, Box, Fan, Thermometer, Droplets, Wind, Zap, Beaker, FlaskConical, ShieldAlert, Droplet, Waves, Activity, Power, ScanSearch, Clock, Calculator, Timer };
+  const IconComponent = icons[name] || Activity;
   return <IconComponent size={size} className={className} />;
 };
 
@@ -48,7 +228,7 @@ const calculateAge = (dateStr: string) => {
 // 2. MODULAR COMPONENTS
 // ============================================================================
 
-const TopMetricsPanel = ({ sensorData }: { sensorData: any }) => (
+const TopMetricsPanel = ({ sensorData }: { sensorData: SensorData }) => (
   <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4 w-full shrink-0">
     {[
       { ic: 'Zap', title: "EC (System)", val: sensorData.ec, unit: "mS/cm", col: "text-yellow-400" },
@@ -70,32 +250,39 @@ const TopMetricsPanel = ({ sensorData }: { sensorData: any }) => (
   </div>
 );
 
-const RacksDisplay = ({ racksData, lights, handleShelfClick, setEditModal, handleToggleLight, lang }: any) => (
+const RacksDisplay = ({ racksData, lights, handleShelfClick, setEditModal, handleToggleLight, lang }: { racksData: RackData[]; lights: boolean[]; handleShelfClick: (rackId: string, shelfLevel: number, plant: string) => void; setEditModal: Dispatch<SetStateAction<EditModalState>>; handleToggleLight: (zone: number) => void; lang: Language; }) => (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
-    {racksData.map((rack: any) => (
+    {racksData.map((rack) => (
       <div key={rack.id} className="bg-slate-800/80 border-2 border-slate-700 rounded-2xl p-4 shadow-xl flex flex-col min-h-[520px]">
         <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 text-white shrink-0">
-          <div><h2 className="text-lg md:text-xl font-black">{t[lang].rack} {rack.id}</h2><span className="text-[9px] md:text-[10px] text-emerald-400 font-bold uppercase tracking-widest leading-none">{rack.id === 3 ? "Mixed Plantings" : t[lang][rack.typeKey]}</span></div>
-          <Activity size={18} className="text-emerald-500" />
+          <div>
+            <h2 className="text-lg md:text-xl font-black">{t[lang].rack} {getRackNumber(rack.id)}</h2>
+            <span className="text-[9px] md:text-[10px] text-emerald-400 font-bold uppercase tracking-widest leading-none">{rack.plant}</span>
+          </div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 text-2xl">
+            <span aria-hidden="true">{rack.icon}</span>
+          </div>
         </div>
         <div className="flex flex-col gap-3 flex-1 h-full">
-          {rack.shelves.map((shelf: any) => {
+          {rack.shelves.map((shelf) => {
             const isOn = lights[shelf.zone];
             const age = calculateAge(shelf.plantDate);
             const pct = Math.min((age / shelf.target) * 100, 100);
             return (
-              <div key={shelf.zone} onClick={() => handleShelfClick(rack.id, shelf.level, shelf.nameKey ? t[lang][shelf.nameKey] : t[lang][rack.typeKey])} className="bg-slate-900/80 rounded-xl p-3 border border-slate-800 relative overflow-hidden flex flex-col gap-2 group hover:border-emerald-500 transition-all cursor-pointer shadow-inner flex-1 justify-center">
+              <div key={shelf.zone} onClick={() => handleShelfClick(rack.id, shelf.level, rack.plant)} className="bg-slate-900/80 rounded-xl p-3 border border-slate-800 relative overflow-hidden flex flex-col gap-2 group hover:border-emerald-500 transition-all cursor-pointer shadow-inner flex-1 justify-center">
                 <div className={`absolute top-0 left-0 w-full h-1 transition-all duration-500 ${isOn ? "bg-purple-500 shadow-[0_0_15px_#a855f7]" : "bg-transparent"}`} />
                 <div className="flex justify-between items-center z-10 text-white font-black uppercase">
                   <div className="flex items-center gap-3">
-                    <div className={`p-1.5 rounded-lg ${isOn ? "bg-slate-800 shadow-[0_0_5px_rgba(168,85,247,0.3)]" : "bg-slate-800/50"}`}>{renderIcon(shelf.iconName, 20, shelf.color)}</div>
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg ${isOn ? "bg-slate-800 shadow-[0_0_5px_rgba(168,85,247,0.3)]" : "bg-slate-800/50"}`}>
+                      <span aria-hidden="true">{rack.icon}</span>
+                    </div>
                     <div>
                       <div className="text-[11px] md:text-[13px] font-black uppercase">{t[lang].shelf} {shelf.level} <span className="text-gray-500 font-normal">(โซน {shelf.zone + 1})</span></div>
-                      <div className="text-[9px] md:text-[10px] text-gray-400 font-medium leading-none">{shelf.nameKey ? t[lang][shelf.nameKey] : t[lang][rack.typeKey]}</div>
+                      <div className="text-[9px] md:text-[10px] text-gray-400 font-medium leading-none">{rack.plant}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 md:gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); setEditModal({ isOpen: true, rackId: rack.id, zone: shelf.zone, plantDate: shelf.plantDate, target: shelf.target, title: `${t[lang].rack} ${rack.id} - ${t[lang].shelf} ${shelf.level}` }); }} className="p-1.5 rounded-full bg-slate-800 text-gray-400 hover:text-white border border-slate-700 transition-colors shadow-sm"><Edit2 size={12} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setEditModal({ isOpen: true, rackId: rack.id, zone: shelf.zone, plantDate: shelf.plantDate, target: shelf.target, title: `${t[lang].rack} ${getRackNumber(rack.id)} - ${t[lang].shelf} ${shelf.level}` }); }} className="p-1.5 rounded-full bg-slate-800 text-gray-400 hover:text-white border border-slate-700 transition-colors shadow-sm"><Edit2 size={12} /></button>
                     <button onClick={(e) => { e.stopPropagation(); handleToggleLight(shelf.zone); }} className={`p-1.5 rounded-full transition-all ${isOn ? "bg-yellow-500/20 text-yellow-400 shadow-[0_0_10px_#eab308]" : "bg-slate-800 text-gray-600"}`}><Power size={14} /></button>
                   </div>
                 </div>
@@ -118,7 +305,7 @@ const RacksDisplay = ({ racksData, lights, handleShelfClick, setEditModal, handl
   </div>
 );
 
-const LightingControl = ({ lights, handleToggleLight, lang, isDesktop }: any) => {
+const LightingControl = ({ lights, handleToggleLight, lang, isDesktop }: { lights: boolean[]; handleToggleLight: (zone: number) => void; lang: Language; isDesktop: boolean; }) => {
   const [isOpen, setIsOpen] = useState(true);
   return (
     <div className="bg-slate-800/80 rounded-xl border border-slate-700 shadow-lg p-4 md:p-5 shrink-0 flex flex-col">
@@ -140,7 +327,7 @@ const LightingControl = ({ lights, handleToggleLight, lang, isDesktop }: any) =>
   );
 };
 
-const FertigationControl = ({ selectedPlant, setSelectedPlant, pumps, handleTogglePump, distZones, handleToggleDist, lang, speakVoice, getPlantPhrase, isDesktop }: any) => {
+const FertigationControl = ({ racksData, updateRackPlant, updateRackRecipe, pumps, handleTogglePump, distZones, handleToggleDist, lang, isDesktop }: { racksData: RackData[]; updateRackPlant: (rackId: string, plant: string) => void; updateRackRecipe: (rackId: string, field: keyof RackRecipe, value: string) => void; pumps: PumpState; handleTogglePump: (key: keyof PumpState, label: string) => void; distZones: DistZoneState; handleToggleDist: (key: keyof DistZoneState, label: string) => void; lang: Language; isDesktop: boolean; }) => {
   const [isOpen, setIsOpen] = useState(true);
   return (
     <div className="bg-slate-800/80 rounded-xl border border-slate-700 shadow-2xl p-4 md:p-5 flex-1 flex flex-col text-white font-black">
@@ -151,32 +338,50 @@ const FertigationControl = ({ selectedPlant, setSelectedPlant, pumps, handleTogg
       {isOpen && (
         <>
           <p className="text-[9px] md:text-[10px] text-gray-400 mb-4 md:mb-6 font-medium normal-case">{t[lang].fertNote}</p>
-          <div className="grid grid-cols-5 gap-1 md:gap-2 mb-4 md:mb-6 shrink-0">
-            {Object.keys(plantConfigs).map((key) => {
-              const Item = plantConfigs[key];
-              const isActive = selectedPlant === key;
-              return (
-                <button key={key} onClick={() => { setSelectedPlant(key); speakVoice(getPlantPhrase(key, lang)); }} 
-                        className={`flex flex-col items-center p-2 md:p-3 rounded-xl md:rounded-2xl border-2 transition-all duration-300 ${isActive ? 'border-blue-400 bg-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.8)] scale-105 text-white' : 'border-slate-600 bg-slate-800 hover:bg-slate-700 text-gray-400 hover:text-white'}`}>
-                  {renderIcon(Item.icon, 20, isActive ? Item.color : 'text-gray-400')}
-                  <span className="text-[7px] md:text-[8px] font-black mt-1 text-center">{t[lang][key]}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="bg-slate-900/90 rounded-2xl p-4 md:p-5 border-2 border-slate-700 mb-6 shadow-inner relative overflow-hidden shrink-0">
-            <div className="flex justify-between items-center mb-4 text-blue-400 tracking-widest text-[9px] md:text-[11px]">
-                <div className="flex items-center gap-1.5 md:gap-2"><Calculator size={14}/> Nutrition Recipe</div>
-                <div className={`px-2 md:px-3 py-1 rounded-full border border-blue-500/40 bg-blue-500/10 animate-pulse text-[10px] md:text-xs`}>Target: {plantConfigs[selectedPlant].ppm}</div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
-                {[{ k: 'a', l: 'ปุ๋ย A', c: 'text-emerald-400' }, { k: 'b', l: 'ปุ๋ย B', c: 'text-purple-400' }, { k: 'water', l: 'น้ำเปล่า', c: 'text-blue-400' }].map(item => (
-                  <div key={item.k} className="flex flex-col items-center p-1.5 md:p-2 bg-slate-800 rounded-xl border border-slate-700">
-                    <label className="text-[8px] md:text-[10px] text-gray-500 font-black mb-1">{item.l}</label>
-                    <div className="flex items-baseline gap-1"><span className={`text-lg md:text-2xl ${item.c}`}>{plantConfigs[selectedPlant][item.k]}</span><span className="text-[8px] md:text-[10px] text-gray-600 font-bold ml-1">L</span></div>
+          <div className="grid grid-cols-1 gap-3 md:gap-4 mb-6 shrink-0">
+            {racksData.map((rack) => (
+              <div key={rack.id} className="bg-slate-900/90 rounded-2xl p-4 md:p-5 border-2 border-slate-700 shadow-inner relative overflow-hidden">
+                <div className="flex items-center justify-between mb-4 text-blue-400 tracking-widest text-[9px] md:text-[11px]">
+                  <div className="flex items-center gap-1.5 md:gap-2"><Calculator size={14} /> {t[lang].rack} {getRackNumber(rack.id)}</div>
+                  <div className="flex items-center gap-2 rounded-full border border-blue-500/40 bg-blue-500/10 px-2 md:px-3 py-1 text-[10px] md:text-xs">
+                    <span aria-hidden="true" className="text-base">{rack.icon}</span>
+                    <span>{rack.plant}</span>
                   </div>
-                ))}
-            </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_2fr] gap-3 md:gap-4 items-start">
+                  <div>
+                    <label className="mb-2 block text-[8px] md:text-[10px] text-gray-500 font-black tracking-widest">Plant</label>
+                    <select
+                      value={rack.plant}
+                      onChange={(event) => updateRackPlant(rack.id, event.target.value)}
+                      className="w-full rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-sm md:text-base text-white outline-none focus:border-emerald-500"
+                    >
+                      {PLANT_OPTIONS.map((plant) => (
+                        <option key={plant} value={plant}>{plant}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 md:gap-3 text-center">
+                    {[
+                      { key: "EC", label: "EC", color: "text-yellow-400" },
+                      { key: "A", label: "A", color: "text-emerald-400" },
+                      { key: "B", label: "B", color: "text-purple-400" },
+                    ].map((field) => (
+                      <div key={field.key} className="flex flex-col items-center rounded-xl border border-slate-700 bg-slate-800 p-2">
+                        <label className="mb-1 text-[8px] md:text-[10px] text-gray-500 font-black">{field.label}</label>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={rack.recipe[field.key as keyof RackRecipe]}
+                          onChange={(event) => updateRackRecipe(rack.id, field.key as keyof RackRecipe, event.target.value)}
+                          className={`w-full bg-transparent text-center text-lg md:text-2xl ${field.color} outline-none`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
           <div className="grid grid-cols-2 gap-2 md:gap-3 mb-6 md:mb-8 shrink-0">
               {[
@@ -186,7 +391,7 @@ const FertigationControl = ({ selectedPlant, setSelectedPlant, pumps, handleTogg
                 { id: 'base', label: t[lang].base, ic: 'Droplet', col: 'indigo' },
                 { id: 'water', label: t[lang].water, ic: 'Waves', col: 'blue' },
                 { id: 'stir', label: t[lang].stir, ic: 'Activity', col: 'teal' }
-              ].map(btn => (
+              ].map((btn) => (
               <div key={btn.id} onClick={() => handleTogglePump(btn.id, btn.label)} className={`p-3 md:p-4 rounded-xl md:rounded-2xl border-2 flex items-center justify-between cursor-pointer transition-all ${pumps[btn.id] ? `bg-${btn.col}-900/30 border-${btn.col}-500 shadow-md` : "bg-slate-900/40 border-slate-700 hover:bg-slate-800"}`}>
                 <div className="flex flex-col gap-1 text-white">{renderIcon(btn.ic, 18, pumps[btn.id] ? `text-${btn.col}-400` : 'text-gray-400')}<span className="text-[11px] md:text-[15px] font-black leading-none">{btn.label}</span></div>
                 <div className={`w-8 md:w-10 h-4 md:h-5 rounded-full relative transition-colors ${pumps[btn.id] ? `bg-${btn.col}-500` : "bg-slate-600"}`}><div className={`absolute top-0.5 w-3 md:w-4 h-3 md:h-4 rounded-full bg-white transition-all ${pumps[btn.id] ? "left-4 md:left-5" : "left-0.5"}`} /></div>
@@ -214,7 +419,7 @@ const FertigationControl = ({ selectedPlant, setSelectedPlant, pumps, handleTogg
   );
 };
 
-const MondayAIChat = ({ messages, inputText, setInputText, handleSendMessage, chatRef, lang, speakVoice }: any) => (
+const MondayAIChat = ({ messages, inputText, setInputText, handleSendMessage, chatRef, lang, speakVoice }: { messages: ChatMessage[]; inputText: string; setInputText: Dispatch<SetStateAction<string>>; handleSendMessage: () => void; chatRef: RefObject<HTMLDivElement | null>; lang: Language; speakVoice: (text: string) => void; }) => (
   <div className="bg-slate-800/90 border-2 border-indigo-500/40 rounded-3xl p-6 md:p-8 shadow-2xl w-full flex flex-col min-h-[350px] relative overflow-hidden backdrop-blur-sm text-white shrink-0">
     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 gap-4 z-10 border-b border-slate-700/50 pb-4 md:pb-6">
       <div className="flex items-center gap-3 md:gap-4 text-white">
@@ -236,7 +441,7 @@ const MondayAIChat = ({ messages, inputText, setInputText, handleSendMessage, ch
       </div>
     </div>
     <div className="flex-1 overflow-y-auto pr-2 mb-6 space-y-4 custom-scrollbar min-h-[120px]">
-      {messages.map((msg: any) => (
+      {messages.map((msg) => (
         <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
           <div className={`max-w-[85%] md:max-w-[70%] p-4 md:p-5 rounded-3xl text-sm md:text-base shadow-2xl break-words whitespace-pre-wrap ${msg.sender === "user" ? "bg-indigo-600 text-white rounded-br-none border-2 border-indigo-400 font-bold" : "bg-slate-700/90 text-gray-100 rounded-bl-none border border-slate-600 backdrop-blur-xl"}`}>{msg.text}</div>
         </div>
@@ -258,46 +463,35 @@ const MondayAIChat = ({ messages, inputText, setInputText, handleSendMessage, ch
 let globalHasPlayedWelcome = false;
 
 export default function App() {
-  const [lang, setLang] = useState("la");
+  const [lang, setLang] = useState<Language>("la");
   const [activeTab, setActiveTab] = useState("dashboard");
 
   // States
   const [espIp, setEspIp] = useState("http://10.10.0.2"); 
-  const [sensorData, setSensorData] = useState({ temp: 24.5, humidity: 65, ph: 6.2, ec: 1.8, co2: 850, do: 7.8 });
+  const [sensorData] = useState<SensorData>({ temp: 24.5, humidity: 65, ph: 6.2, ec: 1.8, co2: 850, do: 7.8 });
   const [lights, setLights] = useState(Array(16).fill(true));
-  const [pumps, setPumps] = useState<any>({ a: false, b: false, acid: false, base: false, water: false, stir: false });
-  const [distZones, setDistZones] = useState<any>({ z1: false, z2: false, z3: false, z4: false, z5: false });
-  const [climate, setClimate] = useState<any>({ ac: true, dehumidifier: false, co2: false, fan: false });
-  const [selectedPlant, setSelectedPlant] = useState("kale");
-  const [messages, setMessages] = useState<any[]>([]);
+  const [pumps, setPumps] = useState<PumpState>({ a: false, b: false, acid: false, base: false, water: false, stir: false });
+  const [distZones, setDistZones] = useState<DistZoneState>({ z1: false, z2: false, z3: false, z4: false, z5: false });
+  const [climate, setClimate] = useState<ClimateState>({ ac: true, dehumidifier: false, co2: false, fan: false });
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
-  const [editModal, setEditModal] = useState<any>({ isOpen: false, rackId: null, zone: null, plantDate: '', target: 0, title: '' });
+  const [editModal, setEditModal] = useState<EditModalState>({ isOpen: false, rackId: null, zone: null, plantDate: '', target: 0, title: '' });
 
-  const chatRef = useRef<any>(null);
+  const chatRef = useRef<HTMLDivElement | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const currentAudioFileRef = useRef<string | null>(null);
 
-  const [racksData, setRacksData] = useState([
-    { id: 1, typeKey: 'kale', shelves: [
-        { level: 5, zone: 4, plantDate: '2026-01-10', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
-        { level: 4, zone: 3, plantDate: '2026-01-15', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
-        { level: 3, zone: 2, plantDate: '2026-01-20', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
-        { level: 2, zone: 1, plantDate: '2026-01-28', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
-        { level: 1, zone: 0, plantDate: '2026-02-10', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
-    ]},
-    { id: 2, typeKey: 'salad', shelves: [
-        { level: 5, zone: 9, plantDate: '2026-01-12', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
-        { level: 4, zone: 8, plantDate: '2026-01-18', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
-        { level: 3, zone: 7, plantDate: '2026-01-25', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
-        { level: 2, zone: 6, plantDate: '2026-02-02', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
-        { level: 1, zone: 5, plantDate: '2026-02-12', target: 45, iconName: 'Leaf', color: "text-emerald-400" },
-    ]},
-    { id: 3, typeKey: 'mixed', shelves: [
-        { level: 3, zone: 12, nameKey: 'cucumber', plantDate: '2026-01-20', target: 30, iconName: 'Apple', color: "text-green-500" },
-        { level: 2, zone: 11, nameKey: 'bellPepper', plantDate: '2026-01-15', target: 60, iconName: 'Apple', color: "text-red-500" },
-        { level: 1, zone: 10, nameKey: 'seedling', plantDate: '2026-02-15', target: 15, iconName: 'Sprout', color: "text-lime-400" },
-    ]}
-  ]);
+  const [racksData, setRacksData] = useState<RackData[]>(() => {
+    if (typeof window === "undefined") return buildDefaultRacksData();
+
+    try {
+      const saved = window.localStorage.getItem(RACKS_STORAGE_KEY);
+      return saved ? normalizeRackData(JSON.parse(saved)) : buildDefaultRacksData();
+    } catch (error) {
+      console.error("Failed to load rack state", error);
+      return buildDefaultRacksData();
+    }
+  });
 
   // Handlers
   const speakVoice = (text: string) => {
@@ -326,26 +520,48 @@ export default function App() {
     sendCommandToESP("light", i, next ? "on" : "off");
   };
 
-  const handleTogglePump = (k: string, l: string) => {
+  const handleTogglePump = (k: keyof PumpState, l: string) => {
     const next = !pumps[k]; setPumps({ ...pumps, [k]: next });
     speakVoice(`${l} ${next ? "เปิดแล้ว" : "ปิดแล้ว"}`);
     sendCommandToESP("pump", k, next ? "on" : "off");
   };
 
-  const handleToggleClimate = (k: string, l: string) => {
+  const handleToggleClimate = (k: keyof ClimateState, l: string) => {
     const next = !climate[k]; setClimate({ ...climate, [k]: next });
     speakVoice(`${l} ${next ? "เปิดแล้ว" : "ปิดแล้ว"}`);
     sendCommandToESP("climate", k, next ? "on" : "off");
   };
 
-  const handleToggleDist = (k: string, l: string) => {
+  const handleToggleDist = (k: keyof DistZoneState, l: string) => {
     const next = !distZones[k]; setDistZones({ ...distZones, [k]: next });
     speakVoice(`ระบบจ่ายปุ๋ย ${l} ${next ? "เปิดแล้ว" : "ปิดแล้ว"}`);
     sendCommandToESP("dist", k, next ? "on" : "off");
   };
 
-  const handleShelfClick = (r: number, s: number, p: string) => {
-    const msg = `${t[lang].rack} ${r} ${t[lang].shelf} ${s} พืชคือ ${p}`;
+  const updateRack = (rackId: string, updater: (rack: RackData) => RackData) => {
+    setRacksData((prev) => prev.map((rack) => (rack.id === rackId ? updater(rack) : rack)));
+  };
+
+  const updateRackPlant = (rackId: string, plant: string) => {
+    updateRack(rackId, (rack) => ({
+      ...rack,
+      plant,
+      icon: getPlantIcon(plant),
+    }));
+  };
+
+  const updateRackRecipe = (rackId: string, field: keyof RackRecipe, value: string) => {
+    updateRack(rackId, (rack) => ({
+      ...rack,
+      recipe: {
+        ...rack.recipe,
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleShelfClick = (rackId: string, shelfLevel: number, plant: string) => {
+    const msg = `${t[lang].rack} ${getRackNumber(rackId)} ${t[lang].shelf} ${shelfLevel} พืชคือ ${plant}`;
     setMessages(prev => [...prev, { id: Date.now(), sender: "ai", text: msg }]);
     speakVoice(msg);
   };
@@ -362,20 +578,23 @@ export default function App() {
   };
 
   const savePlantingData = () => {
-    setRacksData(prev => prev.map(r => r.id === editModal.rackId ? { ...r, shelves: r.shelves.map((s: any) => s.zone === editModal.zone ? { ...s, plantDate: editModal.plantDate, target: Number(editModal.target) } : s) } : r));
+    setRacksData(prev => prev.map(r => r.id === editModal.rackId ? { ...r, shelves: r.shelves.map((s) => s.zone === editModal.zone ? { ...s, plantDate: editModal.plantDate, target: Number(editModal.target) } : s) } : r));
     setEditModal({ ...editModal, isOpen: false });
     speakVoice("บันทึกข้อมูลเรียบร้อย");
   };
 
-  const toggleWelcomeAudio = (file: string) => {
+  const toggleWelcomeAudio = useCallback((file: string) => {
     if (currentAudioRef.current) currentAudioRef.current.pause();
     const audio = new Audio(file);
     currentAudioRef.current = audio; currentAudioFileRef.current = file;
     audio.play().catch(() => speakVoice("ยินดีต้อนรับสู่ เดอะ แพลนท์ แฟคทอรี่"));
-  };
+  }, []);
 
   // Effects
   useEffect(() => { chatRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    window.localStorage.setItem(RACKS_STORAGE_KEY, JSON.stringify(racksData));
+  }, [racksData]);
   useEffect(() => {
     const playAuto = () => {
       if (globalHasPlayedWelcome) return; globalHasPlayedWelcome = true;
@@ -383,7 +602,7 @@ export default function App() {
     };
     document.addEventListener('click', playAuto, { once: true });
     return () => document.removeEventListener('click', playAuto);
-  }, []);
+  }, [toggleWelcomeAudio]);
 
   return (
     <div className="min-h-screen bg-[#0B1121] font-sans overflow-hidden flex flex-col relative text-slate-200 uppercase font-black">
@@ -435,7 +654,7 @@ export default function App() {
               </div> 
               <div className="xl:col-span-1 flex flex-col gap-6 md:gap-8 text-white font-black uppercase flex-1 h-full">
                  <LightingControl lights={lights} handleToggleLight={handleToggleLight} lang={lang} isDesktop={true} />
-                 <FertigationControl selectedPlant={selectedPlant} setSelectedPlant={setSelectedPlant} pumps={pumps} handleTogglePump={handleTogglePump} distZones={distZones} handleToggleDist={handleToggleDist} lang={lang} speakVoice={speakVoice} getPlantPhrase={(k:any,l:any)=>plantConfigs[k].ppm} isDesktop={true} />
+                 <FertigationControl racksData={racksData} updateRackPlant={updateRackPlant} updateRackRecipe={updateRackRecipe} pumps={pumps} handleTogglePump={handleTogglePump} distZones={distZones} handleToggleDist={handleToggleDist} lang={lang} isDesktop={true} />
                  <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 shadow-xl mt-4">
                     <h3 className="text-gray-400 text-xs mb-3 uppercase tracking-wider flex items-center gap-2"><Zap size={14} className="text-yellow-400"/> ESP32 IP</h3>
                     <input type="text" value={espIp} onChange={(e) => setEspIp(e.target.value)} className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-emerald-500 text-sm font-mono" />
@@ -451,10 +670,10 @@ export default function App() {
                 <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead className="bg-slate-900 text-slate-400 text-xs md:text-sm border-b border-slate-700 tracking-[0.2em]"><tr><th className="px-6 py-4 text-center font-black">#</th><th>{t[lang].rack}</th><th>{t[lang].shelf}</th><th>{t[lang].plantType}</th><th className="text-center font-black">{t[lang].plantDate}</th><th className="text-center font-black">อายุ/เป้าหมาย</th><th className="text-center font-black text-lg">วันเหลือ</th></tr></thead>
                   <tbody className="divide-y divide-slate-700/50 text-gray-200">
-                    {racksData.flatMap(r => r.shelves.map(s => ({ ...s, rackId: r.id, rackType: r.typeKey }))).sort((a:any, b:any) => (a.target - calculateAge(a.plantDate)) - (b.target - calculateAge(b.plantDate))).map((m: any, i: number) => { 
+                    {racksData.flatMap((r) => r.shelves.map((s) => ({ ...s, rackId: r.id, plant: r.plant }))).sort((a, b) => (a.target - calculateAge(a.plantDate)) - (b.target - calculateAge(b.plantDate))).map((m, i: number) => { 
                       const age = calculateAge(m.plantDate); const rem = m.target - age; 
-                      return (<tr key={i} className="hover:bg-slate-800/50 text-sm md:text-base transition-all font-bold"><td className="px-6 py-5 text-center text-slate-500 italic text-lg">{i + 1}</td><td className="px-6 py-5 font-black text-md">{t[lang].rack} {m.rackId}</td><td className="px-6 py-5 font-bold">{t[lang].shelf} {m.level}</td><td className="px-6 py-5 text-emerald-400 font-black text-md">{m.nameKey?t[lang][m.nameKey]:t[lang][m.rackType]}</td><td className="px-6 py-5 text-center font-mono text-gray-500">{m.plantDate}</td><td className="px-6 py-5 text-center font-black text-white text-md">{age}/{m.target}</td><td className="px-6 py-5 text-center font-black text-2xl"><span className={rem <= 0 ? 'text-emerald-400 animate-pulse' : rem <= 5 ? 'text-amber-400' : 'text-blue-500'}>{rem <= 0 ? 0 : rem}</span></td></tr>); 
-                    })}
+                      return (<tr key={i} className="hover:bg-slate-800/50 text-sm md:text-base transition-all font-bold"><td className="px-6 py-5 text-center text-slate-500 italic text-lg">{i + 1}</td><td className="px-6 py-5 font-black text-md">{t[lang].rack} {getRackNumber(m.rackId)}</td><td className="px-6 py-5 font-bold">{t[lang].shelf} {m.level}</td><td className="px-6 py-5 text-emerald-400 font-black text-md">{m.plant}</td><td className="px-6 py-5 text-center font-mono text-gray-500">{m.plantDate}</td><td className="px-6 py-5 text-center font-black text-white text-md">{age}/{m.target}</td><td className="px-6 py-5 text-center font-black text-2xl"><span className={rem <= 0 ? 'text-emerald-400 animate-pulse' : rem <= 5 ? 'text-amber-400' : 'text-blue-500'}>{rem <= 0 ? 0 : rem}</span></td></tr>); 
+                    })} 
                   </tbody>
                 </table>
               </div>
