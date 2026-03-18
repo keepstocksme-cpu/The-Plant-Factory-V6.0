@@ -106,6 +106,7 @@ type LegacyRack = {
 
 const RACKS_STORAGE_KEY = "plant-factory-control-panel-racks";
 const PLANT_OPTIONS = ["Lettuce", "Kale", "Spinach", "Pak Choi", "Basil", "Strawberry"];
+const LANG_OPTIONS: Language[] = ["en", "th", "la"];
 
 const PLANT_ICON_MAP: Record<string, string> = {
   Lettuce: "🥬",
@@ -221,7 +222,7 @@ const calculateAge = (dateStr: string) => {
   const d = new Date(dateStr), today = new Date();
   d.setHours(0,0,0,0); today.setHours(0,0,0,0);
   if (today < d) return 0;
-  return Math.ceil(Math.abs(today - d) / (1000 * 60 * 60 * 24)) + 1;
+  return Math.ceil(Math.abs(today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 };
 
 // ============================================================================
@@ -329,6 +330,21 @@ const LightingControl = ({ lights, handleToggleLight, lang, isDesktop }: { light
 
 const FertigationControl = ({ racksData, updateRackPlant, updateRackRecipe, pumps, handleTogglePump, distZones, handleToggleDist, lang, isDesktop }: { racksData: RackData[]; updateRackPlant: (rackId: string, plant: string) => void; updateRackRecipe: (rackId: string, field: keyof RackRecipe, value: string) => void; pumps: PumpState; handleTogglePump: (key: keyof PumpState, label: string) => void; distZones: DistZoneState; handleToggleDist: (key: keyof DistZoneState, label: string) => void; lang: Language; isDesktop: boolean; }) => {
   const [isOpen, setIsOpen] = useState(true);
+  const pumpButtons: { id: keyof PumpState; label: string; ic: string; col: string }[] = [
+    { id: "a", label: t[lang].pumpA, ic: "FlaskConical", col: "emerald" },
+    { id: "b", label: t[lang].pumpB, ic: "FlaskConical", col: "purple" },
+    { id: "acid", label: t[lang].acid, ic: "ShieldAlert", col: "pink" },
+    { id: "base", label: t[lang].base, ic: "Droplet", col: "indigo" },
+    { id: "water", label: t[lang].water, ic: "Waves", col: "blue" },
+    { id: "stir", label: t[lang].stir, ic: "Activity", col: "teal" },
+  ];
+  const zoneButtons: { k: keyof DistZoneState; l: string; i: string }[] = [
+    { k: "z1", l: t[lang].zone1, i: "Layers" },
+    { k: "z2", l: t[lang].zone2, i: "Layers" },
+    { k: "z3", l: t[lang].zone3, i: "Layers" },
+    { k: "z4", l: t[lang].zone4, i: "Box" },
+    { k: "z5", l: t[lang].zone5, i: "Box" },
+  ];
   return (
     <div className="bg-slate-800/80 rounded-xl border border-slate-700 shadow-2xl p-4 md:p-5 flex-1 flex flex-col text-white font-black">
       <button onClick={() => !isDesktop && setIsOpen(!isOpen)} className={`w-full flex justify-between items-center text-blue-400 font-black mb-1 ${isDesktop ? 'cursor-default' : ''}`}>
@@ -384,14 +400,7 @@ const FertigationControl = ({ racksData, updateRackPlant, updateRackRecipe, pump
             ))}
           </div>
           <div className="grid grid-cols-2 gap-2 md:gap-3 mb-6 md:mb-8 shrink-0">
-              {[
-                { id: 'a', label: t[lang].pumpA, ic: 'FlaskConical', col: 'emerald' },
-                { id: 'b', label: t[lang].pumpB, ic: 'FlaskConical', col: 'purple' },
-                { id: 'acid', label: t[lang].acid, ic: 'ShieldAlert', col: 'pink' },
-                { id: 'base', label: t[lang].base, ic: 'Droplet', col: 'indigo' },
-                { id: 'water', label: t[lang].water, ic: 'Waves', col: 'blue' },
-                { id: 'stir', label: t[lang].stir, ic: 'Activity', col: 'teal' }
-              ].map((btn) => (
+              {pumpButtons.map((btn) => (
               <div key={btn.id} onClick={() => handleTogglePump(btn.id, btn.label)} className={`p-3 md:p-4 rounded-xl md:rounded-2xl border-2 flex items-center justify-between cursor-pointer transition-all ${pumps[btn.id] ? `bg-${btn.col}-900/30 border-${btn.col}-500 shadow-md` : "bg-slate-900/40 border-slate-700 hover:bg-slate-800"}`}>
                 <div className="flex flex-col gap-1 text-white">{renderIcon(btn.ic, 18, pumps[btn.id] ? `text-${btn.col}-400` : 'text-gray-400')}<span className="text-[11px] md:text-[15px] font-black leading-none">{btn.label}</span></div>
                 <div className={`w-8 md:w-10 h-4 md:h-5 rounded-full relative transition-colors ${pumps[btn.id] ? `bg-${btn.col}-500` : "bg-slate-600"}`}><div className={`absolute top-0.5 w-3 md:w-4 h-3 md:h-4 rounded-full bg-white transition-all ${pumps[btn.id] ? "left-4 md:left-5" : "left-0.5"}`} /></div>
@@ -401,11 +410,7 @@ const FertigationControl = ({ racksData, updateRackPlant, updateRackRecipe, pump
           <div className="mt-auto border-t-2 border-slate-700 pt-4 md:pt-6">
               <span className="text-[14px] md:text-[18px] text-blue-400 uppercase tracking-widest mb-3 md:mb-4 block text-center font-black">{t[lang].distribute}</span>
               <div className="grid grid-cols-2 gap-2 md:gap-3">
-                {[
-                  { k: 'z1', l: t[lang].zone1, i: 'Layers' }, { k: 'z2', l: t[lang].zone2, i: 'Layers' },
-                  { k: 'z3', l: t[lang].zone3, i: 'Layers' }, { k: 'z4', l: t[lang].zone4, i: 'Box' },
-                  { k: 'z5', l: t[lang].zone5, i: 'Box' }
-                ].map((zone) => (
+                {zoneButtons.map((zone) => (
                   <div key={zone.k} onClick={() => handleToggleDist(zone.k, zone.l)} className={`p-3 md:p-5 rounded-xl md:rounded-2xl border-2 flex items-center justify-between cursor-pointer transition-all ${distZones[zone.k] ? `bg-blue-900/30 border-blue-500 shadow-lg` : "bg-slate-900/40 border-slate-700 hover:bg-slate-800"}`}>
                     <div className="flex flex-col gap-1 md:gap-2 text-white">{renderIcon(zone.i, 20, distZones[zone.k] ? 'text-blue-400 animate-pulse' : 'text-gray-600')}<span className="text-[12px] md:text-[16px] font-black leading-tight">{zone.l}</span></div>
                     <div className={`w-8 md:w-10 h-4 md:h-5 rounded-full relative transition-colors ${distZones[zone.k] ? "bg-blue-500" : "bg-slate-600"}`}><div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${distZones[zone.k] ? "left-5" : "left-0.5"}`} /></div>
@@ -463,6 +468,12 @@ const MondayAIChat = ({ messages, inputText, setInputText, handleSendMessage, ch
 let globalHasPlayedWelcome = false;
 
 export default function App() {
+  const climateControls: { label: string; key: keyof ClimateState; ic: string; col: string }[] = [
+    { label: "แอร์ (AC)", key: "ac", ic: "Thermometer", col: "sky" },
+    { label: "ดูดความชื้น", key: "dehumidifier", ic: "Droplets", col: "blue" },
+    { label: "วาล์ว CO2", key: "co2", ic: "Wind", col: "teal" },
+    { label: "พัดลมระบาย", key: "fan", ic: "Fan", col: "emerald" },
+  ];
   const [lang, setLang] = useState<Language>("la");
   const [activeTab, setActiveTab] = useState("dashboard");
 
@@ -494,14 +505,14 @@ export default function App() {
   });
 
   // Handlers
-  const speakVoice = (text: string) => {
+  const speakVoice = useCallback((text: string) => {
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "th-TH";
       window.speechSynthesis.speak(utterance);
     }
-  };
+  }, []);
 
   const sendCommandToESP = async (deviceType: string, id: string | number, state: string) => {
     if (!espIp) return;
@@ -588,7 +599,7 @@ export default function App() {
     const audio = new Audio(file);
     currentAudioRef.current = audio; currentAudioFileRef.current = file;
     audio.play().catch(() => speakVoice("ยินดีต้อนรับสู่ เดอะ แพลนท์ แฟคทอรี่"));
-  }, []);
+  }, [speakVoice]);
 
   // Effects
   useEffect(() => { chatRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -620,7 +631,7 @@ export default function App() {
         </div>
         <div className="flex items-center gap-2 md:gap-4">
            <div className="flex bg-slate-800 rounded-xl p-1 border border-slate-700">
-             {(["en", "th", "la"]).map((l) => (
+             {LANG_OPTIONS.map((l) => (
                <button key={l} onClick={() => setLang(l)} className={`px-2 md:px-4 py-1.5 md:py-2 rounded-lg text-[8px] md:text-sm font-black transition-all ${lang === l ? "bg-emerald-600 text-white shadow-md" : "text-gray-400"}`}>{l.toUpperCase()}</button>
              ))}
            </div>
@@ -642,7 +653,7 @@ export default function App() {
                 <div className="bg-slate-800/80 border-2 border-slate-700 rounded-3xl p-6 md:p-8 shadow-2xl w-full text-white font-black uppercase shrink-0">
                    <div className="text-xl md:text-2xl flex items-center gap-3 text-teal-400 border-b border-slate-700 pb-4 mb-6"><Wind size={28}/> {t[lang].climate}</div>
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                     {[ { label: 'แอร์ (AC)', key: 'ac', ic: 'Thermometer', col: 'sky' }, { label: 'ดูดความชื้น', key: 'dehumidifier', ic: 'Droplets', col: 'blue' }, { label: 'วาล์ว CO2', key: 'co2', ic: 'Wind', col: 'teal' }, { label: 'พัดลมระบาย', key: 'fan', ic: 'Fan', col: 'emerald' } ].map((item) => (
+                     {climateControls.map((item) => (
                        <div key={item.key} onClick={() => handleToggleClimate(item.key, item.label)} className={`p-4 rounded-2xl border-2 flex items-center justify-between cursor-pointer transition-all ${climate[item.key] ? `bg-${item.col}-900/30 border-${item.col}-500 shadow-lg` : "bg-slate-900/40 border-slate-700 hover:bg-slate-800"}`}>
                          <div className="flex items-center gap-3"><div className={`p-2.5 rounded-xl ${climate[item.key] ? `bg-${item.col}-500/20 text-${item.col}-400` : 'bg-slate-800 text-gray-400'}`}>{renderIcon(item.ic, 24, item.key === 'fan' && climate.fan ? 'animate-spin' : '')}</div><span className="text-xs md:text-sm">{item.label}</span></div>
                          <div className={`w-10 h-5 rounded-full relative transition-colors ${climate[item.key] ? `bg-${item.col}-500` : "bg-slate-600"}`}><div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${climate[item.key] ? "left-5" : "left-0.5"}`} /></div>
