@@ -594,6 +594,7 @@ export default function App() {
     { label: "วาล์ว CO2", key: "co2", ic: "Wind", col: "teal" },
     { label: "พัดลมระบาย", key: "fan", ic: "Fan", col: "emerald" },
   ];
+  const [initialState] = useState(() => loadInitialPlantFactoryState());
   const [lang, setLang] = useState<Language>("la");
   const [activeTab, setActiveTab] = useState("dashboard");
 
@@ -607,14 +608,14 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [editModal, setEditModal] = useState<EditModalState>({ isOpen: false, rackId: null, zone: null, plant: "", recipe: { EC: "", A: "", B: "" }, plantDate: "", target: 0, title: "" });
-  const [plantCatalog, setPlantCatalog] = useState<PlantCatalogEntry[]>(() => loadInitialPlantFactoryState().plantCatalog);
+  const [plantCatalog, setPlantCatalog] = useState<PlantCatalogEntry[]>(initialState.plantCatalog);
   const [catalogWarning, setCatalogWarning] = useState("");
 
   const chatRef = useRef<HTMLDivElement | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const currentAudioFileRef = useRef<string | null>(null);
 
-  const [racksData, setRacksData] = useState<RackData[]>(() => loadInitialPlantFactoryState().racksData);
+  const [racksData, setRacksData] = useState<RackData[]>(initialState.racksData);
   const activePlants = deriveActivePlants(racksData, plantCatalog);
 
   // Handlers
@@ -715,19 +716,34 @@ export default function App() {
     const currentPlantKey = normalizePlantName(currentRack.plant);
     const nextPlantKey = normalizePlantName(plantName);
     const existingTargetPlant = findPlantInCatalog(plantCatalog, plantName);
+    const samePlantFormula = nextPlantKey === currentPlantKey;
 
     let nextCatalog = [...plantCatalog];
+    let resolvedPlantName = plantName;
 
-    if (nextPlantKey === currentPlantKey || existingTargetPlant) {
-      const plantKeyToUpdate = existingTargetPlant ? normalizePlantName(existingTargetPlant.name) : currentPlantKey;
-
+    if (samePlantFormula) {
       nextCatalog = normalizePlantCatalog(
         nextCatalog.map((entry) =>
-          normalizePlantName(entry.name) === plantKeyToUpdate
+          normalizePlantName(entry.name) === currentPlantKey
             ? {
                 ...entry,
                 name: plantName,
                 icon: getPlantIcon(plantName),
+                recipe: normalizeRecipe(editModal.recipe),
+              }
+            : entry,
+        ),
+      );
+    } else if (existingTargetPlant) {
+      resolvedPlantName = existingTargetPlant.name;
+
+      nextCatalog = normalizePlantCatalog(
+        nextCatalog.map((entry) =>
+          normalizePlantName(entry.name) === normalizePlantName(existingTargetPlant.name)
+            ? {
+                ...entry,
+                name: existingTargetPlant.name,
+                icon: getPlantIcon(existingTargetPlant.name),
                 recipe: normalizeRecipe(editModal.recipe),
               }
             : entry,
@@ -749,7 +765,7 @@ export default function App() {
       ]);
     }
 
-    const resolvedPlant = findPlantInCatalog(nextCatalog, plantName);
+    const resolvedPlant = findPlantInCatalog(nextCatalog, resolvedPlantName);
     if (!resolvedPlant) {
       setCatalogWarning("Unable to save plant settings.");
       return;
